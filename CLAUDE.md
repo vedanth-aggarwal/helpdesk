@@ -12,7 +12,8 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 
 - `client/` — Vite + React 19 + TypeScript SPA
 - `server/` — Express 5 + TypeScript API
-- No root-level scripts; `cd` into `client/` or `server/` to run anything.
+- `e2e/` — Playwright end-to-end tests, own `package.json` (see the `e2e-test-writer` agent for how the harness works and how to write specs)
+- No root-level scripts; `cd` into `client/`, `server/`, or `e2e/` to run anything.
 
 ## Commands
 
@@ -25,7 +26,7 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 ### Server (`server/`)
 - `npm run dev` — ts-node-dev on `src/index.ts` (default port 4000), auto-respawns
 - `npm run build` — `tsc`
-- `npm run start` — run compiled `dist/index.js`
+- `npm run start` — run compiled `dist/index.js` with `NODE_ENV=production` set (this is what gates rate limiting on, see Auth below)
 - `npm run seed` — run `prisma/seed.ts`, creates the admin user from `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` env vars (no-op if that user already exists)
 - No test suite is configured yet (`npm test` is a placeholder).
 
@@ -34,6 +35,10 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - `npx prisma generate` — regenerate the client (output goes to `server/src/generated/prisma`, not `node_modules`)
 - Schema: `server/prisma/schema.prisma`. Config (schema/migration paths, datasource URL): `server/prisma.config.ts`, not the schema file's `datasource` block.
 
+### E2E tests (`e2e/`)
+- **Always use the `e2e-test-writer` agent to write or update Playwright specs** — invoke it (via the Agent/Task tool) rather than writing `e2e/tests/**/*.spec.ts` files directly. It knows the harness (isolated `helpdesk_test` DB, `webServer` config, seeded admin credentials) and this app's current feature surface, so tests it writes match how the app actually behaves instead of guessing. This applies whenever the user asks for e2e/browser test coverage, and proactively after finishing a new user-facing flow that should get coverage.
+- Full setup and harness mechanics are documented in `.claude/agents/e2e-test-writer.md`, not here — read that file (or just invoke the agent) rather than duplicating the details.
+
 ## Architecture
 
 ### Auth
@@ -41,6 +46,7 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - Server mounts Better Auth's handler directly at `app.all("/api/auth/*splat", toNodeHandler(auth))` in `server/src/index.ts`, ahead of `express.json()` — Better Auth parses its own request bodies.
 - `role` (`ADMIN`/`AGENT`) is a Better Auth `additionalFields` entry on `user`, backed by the `Role` enum in `schema.prisma`. It defaults to `AGENT`.
 - `server/src/middleware/requireAuth.ts` validates the session via `auth.api.getSession` and attaches it to `req.session`; use this middleware to protect any new API route.
+- Rate limiting (Better Auth's built-in limiter, 60s window / 100 requests by default) is enabled only when `NODE_ENV === "production"` (`rateLimit.enabled` in `server/src/auth.ts`) — off in `dev`/`dev:test` so local and e2e runs aren't throttled. Only `npm run start` sets `NODE_ENV=production`; a future real deploy pipeline needs to set it too (or rely on the platform doing so) or this silently stays off.
 - Client uses `better-auth/react`'s `createAuthClient` (`client/src/lib/auth-client.ts`) pointed at `VITE_SERVER_URL`. `authClient.useSession()` drives `ProtectedRoute`, `PublicOnlyRoute`, and `AdminRoute` (`client/src/components/`), which gate the route tree in `App.tsx` — protected pages render inside `Layout`, which also owns sign-out. `AdminRoute` nests inside `ProtectedRoute` and redirects to `/` unless `session.user.role === "ADMIN"`; `Layout` only shows nav links to admin-only pages when that check passes.
 - `auth-client.ts` registers `inferAdditionalFields` (from `better-auth/client/plugins`) with a manually declared `{ user: { role: { type: "string" } } }` schema so `session.user.role` is typed on the client. Declare it manually rather than importing `typeof auth` from the server — `client/` and `server/` are separate npm projects with separate tsconfigs, and `client/tsconfig.app.json`'s `include: ["src"]` makes cross-package imports fragile.
 - User management endpoints aren't built yet and self-serve signup is disabled, so there is currently no way to create an agent/admin user through the app. To create one manually, follow the pattern in `server/prisma/seed.ts`: create the `User` row via Prisma, hash the password with `hashPassword` from `better-auth/crypto`, and insert a matching `Account` row (`providerId: "credential"`). Run one-off scripts with `npx ts-node --transpile-only <script>.ts` from `server/` (plain `ts-node` fails under `verbatimModuleSyntax`), and delete the script afterward — prefer real user-management endpoints once they exist (see `implementation-plan.md`).
@@ -57,6 +63,6 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 
 ## Environment
 
-- `server/.env` — `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `CLIENT_URL`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (see `server/.env.example`).
+- `server/.env` — `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `CLIENT_URL`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (see `server/.env.example`). `server/.env.test` is the e2e equivalent — see the `e2e-test-writer` agent.
 - `client/` reads `VITE_SERVER_URL` for the API base URL (defaults to `http://localhost:4000`).
 - CORS on the server is locked to `CLIENT_URL` (default `http://localhost:5173`) with `credentials: true`.
