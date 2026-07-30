@@ -115,6 +115,62 @@ describe("Tickets", () => {
     });
   });
 
+  it("refetches with a status filter when a status is selected", async () => {
+    renderTickets();
+
+    await waitFor(() => {
+      expect(screen.getByText("Refund request for order #4821")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Resolved" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sortBy: "createdAt", sortOrder: "desc", status: "RESOLVED" },
+      });
+    });
+  });
+
+  it("refetches with a category filter when a category is selected", async () => {
+    renderTickets();
+
+    await waitFor(() => {
+      expect(screen.getByText("Refund request for order #4821")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Category" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Uncategorized" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sortBy: "createdAt", sortOrder: "desc", category: "UNCATEGORIZED" },
+      });
+    });
+  });
+
+  it("refetches with a debounced search param after typing", async () => {
+    renderTickets();
+
+    await waitFor(() => {
+      expect(screen.getByText("Refund request for order #4821")).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText(/search subject or requester/i), "sam");
+
+    // Debounce: no immediate call with the search param.
+    expect(mockedGet).not.toHaveBeenCalledWith(
+      "/api/tickets",
+      expect.objectContaining({ params: expect.objectContaining({ search: "sam" }) }),
+    );
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sortBy: "createdAt", sortOrder: "desc", search: "sam" },
+      });
+    });
+  });
+
   it("renders the server error message on failure", async () => {
     mockedGet.mockRejectedValue(
       new AxiosError("Request failed", "401", undefined, undefined, {
