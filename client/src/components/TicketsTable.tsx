@@ -7,6 +7,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -16,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
 
 export interface TicketRow {
   id: number;
@@ -24,6 +26,7 @@ export interface TicketRow {
   requesterName: string;
   status: "OPEN" | "RESOLVED" | "CLOSED";
   category: "GENERAL_QUESTION" | "TECHNICAL_QUESTION" | "REFUND_REQUEST" | null;
+  assignee: { id: string; name: string; email: string } | null;
   createdAt: string;
 }
 
@@ -33,19 +36,19 @@ interface TicketsTableProps {
   onSortingChange: OnChangeFn<SortingState>;
 }
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((word) => word[0]?.toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 const columnHelper = createColumnHelper<TicketRow>();
 
 const columns = [
   columnHelper.accessor("subject", {
     header: "Subject",
+    cell: (info) => (
+      <Link
+        to={`/tickets/${info.row.original.id}`}
+        className="font-medium text-gray-900 hover:underline"
+      >
+        {info.getValue()}
+      </Link>
+    ),
   }),
   columnHelper.accessor("requesterName", {
     header: "Requester",
@@ -59,14 +62,18 @@ const columns = [
   }),
   columnHelper.accessor("status", {
     header: "Status",
-    cell: (info) => formatEnumLabel(info.getValue()),
+    cell: (info) => TICKET_STATUS_LABELS[info.getValue()],
   }),
   columnHelper.accessor("category", {
     header: "Category",
     cell: (info) => {
       const category = info.getValue();
-      return category ? formatEnumLabel(category) : "Uncategorized";
+      return category ? TICKET_CATEGORY_LABELS[category] : "Uncategorized";
     },
+  }),
+  columnHelper.accessor((row) => row.assignee?.name ?? "Unassigned", {
+    id: "assignee",
+    header: "Assigned to",
   }),
   columnHelper.accessor("createdAt", {
     header: "Created",
@@ -94,6 +101,7 @@ export function TicketsTable({ tickets, sorting, onSortingChange }: TicketsTable
             <TableHead>Requester</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Category</TableHead>
+            <TableHead>Assigned to</TableHead>
             <TableHead>Created</TableHead>
           </TableRow>
         </TableHeader>
@@ -111,6 +119,9 @@ export function TicketsTable({ tickets, sorting, onSortingChange }: TicketsTable
               </TableCell>
               <TableCell>
                 <Skeleton className="h-4 w-32" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-28" />
               </TableCell>
               <TableCell>
                 <Skeleton className="h-4 w-20" />

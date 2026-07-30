@@ -8,6 +8,7 @@ import { requireAuth } from "./middleware/requireAuth";
 import { usersRouter } from "./routes/users";
 import { inboundEmailRouter } from "./routes/inboundEmail";
 import { ticketsRouter } from "./routes/tickets";
+import { agentsRouter } from "./routes/agents";
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.get("/api/me", requireAuth, (req, res) => {
 app.use("/api/users", usersRouter);
 app.use("/api/inbound-email", inboundEmailRouter);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/agents", agentsRouter);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

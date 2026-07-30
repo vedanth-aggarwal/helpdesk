@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import type { SortingState } from "@tanstack/react-table";
-import type { TicketCategoryFilter, TicketStatusFilter } from "@helpdesk/core";
+import { TICKET_PAGE_SIZE, type TicketCategoryFilter, type TicketStatusFilter } from "@helpdesk/core";
 import { api } from "@/lib/api";
+import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
 import { TicketsTable, type TicketRow } from "@/components/TicketsTable";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,6 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+interface TicketsResponse {
+  tickets: TicketRow[];
+  total: number;
+}
 
 const defaultSorting: SortingState = [{ id: "createdAt", desc: true }];
 
@@ -24,16 +31,12 @@ type CategoryFilterValue = TicketCategoryFilter | typeof ALL_CATEGORIES;
 
 const statusLabels: Record<StatusFilterValue, string> = {
   [ALL_STATUSES]: "All statuses",
-  OPEN: "Open",
-  RESOLVED: "Resolved",
-  CLOSED: "Closed",
+  ...TICKET_STATUS_LABELS,
 };
 
 const categoryLabels: Record<CategoryFilterValue, string> = {
   [ALL_CATEGORIES]: "All categories",
-  GENERAL_QUESTION: "General Question",
-  TECHNICAL_QUESTION: "Technical Question",
-  REFUND_REQUEST: "Refund Request",
+  ...TICKET_CATEGORY_LABELS,
   UNCATEGORIZED: "Uncategorized",
 };
 
@@ -43,6 +46,7 @@ export function Tickets() {
   const [category, setCategory] = useState<CategoryFilterValue>(ALL_CATEGORIES);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const timeout = setTimeout(() => setSearch(searchInput.trim()), 300);
@@ -53,22 +57,31 @@ export function Tickets() {
   const sortBy = activeSort.id;
   const sortOrder = activeSort.desc ? "desc" : "asc";
 
-  const { data: tickets, error } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder, status, category, search],
+  // Any change to sort/filters invalidates the current page — start back at page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [sortBy, sortOrder, status, category, search]);
+
+  const { data, error } = useQuery({
+    queryKey: ["tickets", sortBy, sortOrder, status, category, search, page],
     queryFn: async () => {
-      const res = await api.get<TicketRow[]>("/api/tickets", {
+      const res = await api.get<TicketsResponse>("/api/tickets", {
         params: {
           sortBy,
           sortOrder,
           status: status === ALL_STATUSES ? undefined : status,
           category: category === ALL_CATEGORIES ? undefined : category,
           search: search || undefined,
+          page,
         },
       });
       return res.data;
     },
     placeholderData: keepPreviousData,
   });
+
+  const tickets = data?.tickets;
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / TICKET_PAGE_SIZE)) : 1;
 
   const errorMessage = error
     ? isAxiosError(error)
@@ -119,7 +132,31 @@ export function Tickets() {
       {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
 
       {!errorMessage && (
-        <TicketsTable tickets={tickets} sorting={sorting} onSortingChange={setSorting} />
+        <>
+          <TicketsTable tickets={tickets} sorting={sorting} onSortingChange={setSorting} />
+
+          <div className="mt-4 flex items-center justify-end gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import type { SortingState } from "@tanstack/react-table";
 import { TicketsTable, type TicketRow } from "./TicketsTable";
 
@@ -12,6 +13,7 @@ const tickets: TicketRow[] = [
     requesterName: "Sam Rivera",
     status: "OPEN",
     category: "REFUND_REQUEST",
+    assignee: { id: "agent-1", name: "Alex Kim", email: "alex@example.com" },
     createdAt: "2026-07-30T08:50:03.756Z",
   },
   {
@@ -21,6 +23,7 @@ const tickets: TicketRow[] = [
     requesterName: "Jane Doe",
     status: "OPEN",
     category: null,
+    assignee: null,
     createdAt: "2026-07-30T08:48:27.663Z",
   },
 ];
@@ -29,13 +32,19 @@ const defaultSorting: SortingState = [{ id: "createdAt", desc: true }];
 
 function renderTable(sorting: SortingState = defaultSorting, onSortingChange = vi.fn()) {
   return render(
-    <TicketsTable tickets={tickets} sorting={sorting} onSortingChange={onSortingChange} />,
+    <MemoryRouter>
+      <TicketsTable tickets={tickets} sorting={sorting} onSortingChange={onSortingChange} />
+    </MemoryRouter>,
   );
 }
 
 describe("TicketsTable", () => {
   it("renders a skeleton row per placeholder while loading", () => {
-    render(<TicketsTable tickets={undefined} sorting={defaultSorting} onSortingChange={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <TicketsTable tickets={undefined} sorting={defaultSorting} onSortingChange={vi.fn()} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getAllByRole("row")).toHaveLength(6); // header + 5 skeleton rows
   });
@@ -49,10 +58,24 @@ describe("TicketsTable", () => {
     expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2 ticket rows
   });
 
+  it("renders the subject as a link to the ticket detail page", () => {
+    renderTable();
+
+    const link = screen.getByRole("link", { name: "Refund request for order #4821" });
+    expect(link).toHaveAttribute("href", "/tickets/2");
+  });
+
   it("renders a null category as Uncategorized", () => {
     renderTable();
 
     expect(screen.getByText("Uncategorized")).toBeInTheDocument();
+  });
+
+  it("renders the assignee name, or Unassigned when there is none", () => {
+    renderTable();
+
+    expect(screen.getByText("Alex Kim")).toBeInTheDocument();
+    expect(screen.getByText("Unassigned")).toBeInTheDocument();
   });
 
   it("humanizes enum values for status and category", () => {

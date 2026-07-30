@@ -30,17 +30,18 @@ enum TicketCategory {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  role          Role      @default(AGENT)
-  createdAt     DateTime  @default(now())
-  name          String
-  emailVerified Boolean   @default(false)
-  image         String?
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  sessions      Session[]
-  accounts      Account[]
+  id              String    @id @default(uuid())
+  email           String    @unique
+  role            Role      @default(AGENT)
+  createdAt       DateTime  @default(now())
+  name            String
+  emailVerified   Boolean   @default(false)
+  image           String?
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  sessions        Session[]
+  accounts        Account[]
+  assignedTickets Ticket[]
 
   @@map("user")
 }
@@ -89,6 +90,8 @@ model Ticket {
   requesterName  String
   status         TicketStatus    @default(OPEN)
   category       TicketCategory?
+  assigneeId     String?
+  assignee       User?           @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   messageId      String?         @unique
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt

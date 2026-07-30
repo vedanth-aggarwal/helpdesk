@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AxiosError, AxiosHeaders } from "axios";
+import { MemoryRouter } from "react-router-dom";
 import { Tickets } from "./Tickets";
 import { api } from "@/lib/api";
 import { renderWithQuery } from "@/test/renderWithQuery";
@@ -13,7 +14,11 @@ vi.mock("@/lib/api", () => ({
 const mockedGet = vi.mocked(api.get);
 
 function renderTickets() {
-  return renderWithQuery(<Tickets />);
+  return renderWithQuery(
+    <MemoryRouter>
+      <Tickets />
+    </MemoryRouter>,
+  );
 }
 
 const tickets = [
@@ -40,7 +45,7 @@ const tickets = [
 describe("Tickets", () => {
   beforeEach(() => {
     mockedGet.mockReset();
-    mockedGet.mockResolvedValue({ data: tickets });
+    mockedGet.mockResolvedValue({ data: { tickets, total: tickets.length } });
   });
 
   it("renders a loading skeleton before data resolves", () => {
@@ -71,7 +76,7 @@ describe("Tickets", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "createdAt", sortOrder: "desc" },
+        params: { sortBy: "createdAt", sortOrder: "desc", page: 1 },
       });
     });
   });
@@ -87,7 +92,7 @@ describe("Tickets", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "subject", sortOrder: "asc" },
+        params: { sortBy: "subject", sortOrder: "asc", page: 1 },
       });
     });
   });
@@ -103,14 +108,14 @@ describe("Tickets", () => {
     await userEvent.click(subjectHeader);
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "subject", sortOrder: "asc" },
+        params: { sortBy: "subject", sortOrder: "asc", page: 1 },
       });
     });
 
     await userEvent.click(subjectHeader);
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "subject", sortOrder: "desc" },
+        params: { sortBy: "subject", sortOrder: "desc", page: 1 },
       });
     });
   });
@@ -127,7 +132,7 @@ describe("Tickets", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "createdAt", sortOrder: "desc", status: "RESOLVED" },
+        params: { sortBy: "createdAt", sortOrder: "desc", status: "RESOLVED", page: 1 },
       });
     });
   });
@@ -144,7 +149,7 @@ describe("Tickets", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "createdAt", sortOrder: "desc", category: "UNCATEGORIZED" },
+        params: { sortBy: "createdAt", sortOrder: "desc", category: "UNCATEGORIZED", page: 1 },
       });
     });
   });
@@ -166,7 +171,69 @@ describe("Tickets", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sortBy: "createdAt", sortOrder: "desc", search: "sam" },
+        params: { sortBy: "createdAt", sortOrder: "desc", search: "sam", page: 1 },
+      });
+    });
+  });
+
+  it("renders the page count and disables Previous on the first page", async () => {
+    mockedGet.mockResolvedValue({ data: { tickets, total: 45 } }); // 45 tickets / 20 per page = 3 pages
+
+    renderTickets();
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next" })).not.toBeDisabled();
+  });
+
+  it("requests page 2 and disables Next on the last page", async () => {
+    mockedGet.mockResolvedValue({ data: { tickets, total: 45 } });
+
+    renderTickets();
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sortBy: "createdAt", sortOrder: "desc", page: 2 },
+      });
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 3 of 3")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
+  it("resets to page 1 when a filter changes while on a later page", async () => {
+    mockedGet.mockResolvedValue({ data: { tickets, total: 45 } });
+
+    renderTickets();
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Resolved" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sortBy: "createdAt", sortOrder: "desc", status: "RESOLVED", page: 1 },
       });
     });
   });

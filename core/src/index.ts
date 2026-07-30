@@ -7,10 +7,19 @@ export {
   ticketSortFields,
   ticketStatusFilterSchema,
   ticketCategoryFilterSchema,
+  ticketIdParamSchema,
+  ticketAssignSchema,
+  ticketCategorySchema,
+  ticketUpdateSchema,
+  TICKET_PAGE_SIZE,
 } from "./schemas/ticket";
 export type {
   TicketQuery,
   TicketSortField,
   TicketStatusFilter,
   TicketCategoryFilter,
+  TicketIdParam,
+  TicketAssignInput,
+  TicketCategory,
+  TicketUpdateInput,
 } from "./schemas/ticket";
