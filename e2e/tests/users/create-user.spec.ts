@@ -52,55 +52,10 @@ test.describe("Create user (admin)", () => {
     await loginAs(page, email, password);
   });
 
-  test("shows a validation error and blocks submission for a too-short name", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: "Add user" }).click();
-    const dialog = page.getByRole("dialog");
-
-    await dialog.getByLabel("Name").fill("ab");
-    await dialog.getByLabel("Email").fill(uniqueEmail("short-name"));
-    await dialog.getByLabel("Password").fill("validPassword123");
-    await dialog.getByRole("button", { name: "Create user" }).click();
-
-    await expect(
-      dialog.getByText("Name must be at least 3 characters")
-    ).toBeVisible();
-    await expect(dialog).toBeVisible();
-  });
-
-  test("shows a validation error and blocks submission for an invalid email", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: "Add user" }).click();
-    const dialog = page.getByRole("dialog");
-
-    await dialog.getByLabel("Name").fill("Valid Name");
-    await dialog.getByLabel("Email").fill("not-an-email");
-    await dialog.getByLabel("Password").fill("validPassword123");
-    await dialog.getByRole("button", { name: "Create user" }).click();
-
-    await expect(dialog.getByText("Invalid email")).toBeVisible();
-    await expect(dialog).toBeVisible();
-  });
-
-  test("shows a validation error and blocks submission for a too-short password", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: "Add user" }).click();
-    const dialog = page.getByRole("dialog");
-
-    await dialog.getByLabel("Name").fill("Valid Name");
-    await dialog.getByLabel("Email").fill(uniqueEmail("short-password"));
-    await dialog.getByLabel("Password").fill("short1");
-    await dialog.getByRole("button", { name: "Create user" }).click();
-
-    await expect(
-      dialog.getByText("Password must be at least 8 characters")
-    ).toBeVisible();
-    await expect(dialog).toBeVisible();
-  });
-
+  // Field-level validation (too-short name, invalid email, too-short password)
+  // is pure client-side logic, covered instead by
+  // client/src/components/CreateUserDialog.test.tsx. This spec keeps only the
+  // cases that need a real server: the actual duplicate-email business rule.
   test("shows a duplicate-email error from the server and keeps the modal open", async ({
     page,
   }) => {
@@ -125,9 +80,10 @@ test.describe("Create user (non-admin)", () => {
   test("POST /api/users is blocked for a non-admin agent", async ({
     page,
   }) => {
-    // AdminRoute already keeps agents off the /users page (see role-gating
-    // spec); this confirms the API is independently guarded too, in case the
-    // UI guard is ever bypassed or the route is hit directly.
+    // AdminRoute already keeps agents off the /users page (covered at the
+    // component level by client/src/components/AdminRoute.test.tsx); this
+    // confirms the API is independently guarded too, in case the UI guard is
+    // ever bypassed or the route is hit directly.
     await loginAs(page, AGENT_EMAIL, AGENT_PASSWORD);
 
     const response = await page.request.post(`${SERVER_URL}/api/users`, {

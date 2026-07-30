@@ -5,6 +5,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PublicOnlyRoute } from "./components/PublicOnlyRoute";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
+import { Tickets } from "./pages/Tickets";
 import { Users } from "./pages/Users";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/tickets" element={<Tickets />} />
           <Route element={<AdminRoute />}>
             <Route path="/users" element={<Users />} />
           </Route>

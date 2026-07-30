@@ -51,36 +51,13 @@ test.describe("Delete user (admin)", () => {
     await expect(page.getByText(agent.email)).not.toBeVisible();
   });
 
-  test("clicking Cancel in the confirmation modal leaves the user in the list", async ({
-    page,
-  }) => {
-    const agent = await createAgent(page, "keep-me");
-    await page.reload();
-
-    const row = page.getByRole("row", { name: new RegExp(agent.email) });
-    await expect(row).toBeVisible();
-
-    await row.getByRole("button", { name: `Delete ${agent.name}` }).click();
-
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-
-    await expect(dialog).not.toBeVisible();
-    await expect(row).toBeVisible();
-    await expect(row).toContainText(agent.email);
-  });
-
-  test("the delete button for the admin's own row is disabled", async ({ page }) => {
-    const row = page.getByRole("row", { name: new RegExp(ADMIN_EMAIL) });
-    await expect(row).toBeVisible();
-
-    const deleteButton = row.getByRole("button", { name: "Delete Admin" });
-    await expect(deleteButton).toBeDisabled();
-    await expect(deleteButton).toHaveAttribute("title", "Admin users cannot be deleted");
-  });
-
+  // Cancel-leaves-the-list-unchanged and the admin-row's-delete-button-disabled
+  // cases are pure UI logic, covered instead by
+  // client/src/components/DeleteUserDialog.test.tsx ("closes without deleting
+  // when Cancel is clicked") and client/src/pages/Users.test.tsx ("has a
+  // disabled delete button for the admin row"). This spec keeps only the
+  // cases that need a real server: the actual role-based 403 and the
+  // requireAuth deletedAt lockout below.
   test("DELETE /api/users/:id against an admin user is rejected with 403", async ({
     page,
   }) => {

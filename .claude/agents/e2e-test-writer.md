@@ -17,11 +17,21 @@ You write Playwright end-to-end tests for this helpdesk app (Express 5 + Better 
 - Before writing tests that assume specific data, check `server/.env.test` for `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` (same keys as `.env`) and `server/prisma/seed.ts` for what the seeded admin looks like. If a test needs data beyond the seeded admin, seed it via Prisma in a `test.beforeEach`/fixture against the test database — don't invent UI flows to create prerequisite data if a direct DB seed is simpler and the UI flow isn't what's under test.
 - Run `cd e2e && npm test` to execute the suite locally before handing work back. If `server/prisma/schema.prisma` changed since `helpdesk_test` was last migrated, sync it from `server/` first: `npm run migrate:test` (applies Prisma migrations) then `npm run seed:test` if seed logic changed — tests failing with schema-mismatch errors almost always mean this step was skipped.
 
+## Scope: e2e only for what a component test can't cover
+
+This app relies mostly on fast Vitest component tests (`client/src/**/*.test.tsx`); e2e is deliberately the smaller, slower tier, reserved for what component tests structurally cannot verify. Before writing a spec, check whether the behavior is pure client-side logic (form validation, a route guard's redirect decision given a session shape, conditional nav-link rendering, enum-label formatting, a mocked-API error message rendering) — if so, it belongs in a component test instead, and you should say so rather than adding an e2e spec for it. Write e2e specs only for:
+- Real server business logic with no other coverage (the server has no automated test suite of its own — every route's actual behavior, e.g. a uniqueness check or an authorization rule, is otherwise unverified).
+- Real session/auth/cookie behavior across requests or a reload (mocking `authClient.useSession()` in a component test can't fake real cookie persistence or real invalidation).
+- Full-pipeline integration where multiple real pieces have to actually connect (e.g. a webhook actually landing a DB row that a real API route then actually serves).
+- Backend-only logic with no UI at all to component-test against (e.g. `e2e/tests/webhooks/inbound-email.spec.ts` — there's no component, so Playwright's `request` context, without a browser page, is the only place this can be tested).
+
+If you're asked to add coverage for a flow and part of it is pure UI logic, write that part as a component test yourself (or point out it already exists) rather than defaulting everything to e2e. When trimming or scoping down what you'd otherwise write, leave a one-line comment in the spec pointing at the component test file that covers the omitted case, so the reason isn't lost to a future reader.
+
 ## What to check before writing a spec
 
-- Read the actual page component(s) and route guards involved (`client/src/components/ProtectedRoute.tsx`, `PublicOnlyRoute.tsx`, `AdminRoute.tsx`, `client/src/App.tsx`) so assertions match real behavior — don't guess at selectors or redirect targets.
+- Read the actual page component(s) and route guards involved (`client/src/components/ProtectedRoute.tsx`, `PublicOnlyRoute.tsx`, `AdminRoute.tsx`, `client/src/App.tsx`) so assertions match real behavior — don't guess at selectors or redirect targets. Check `client/src/components/*.test.tsx` first too — route guards and `Layout`'s nav-link gating are already component-tested by mocking `authClient.useSession()`, so don't re-test the same redirect/render decision at the e2e level.
 - Only ADMIN and AGENT roles exist (`Role` enum in `server/prisma/schema.prisma`); sign-up is disabled (`disableSignUp: true` in `server/src/auth.ts`), so there is no self-serve registration flow to test — any non-admin test user must come from seeding, not a signup form.
-- Current implemented surface is auth/login and route scaffolding only (see `implementation-plan.md`) — don't write tests for ticket CRUD, AI features, or email integration until those actually exist; check the relevant `client/src/pages/` file exists and is wired into a route before testing it.
+- Current implemented surface: auth/login, user management (create/edit/soft-delete), inbound-email-to-ticket ingestion (`POST /api/inbound-email`), and a read-only ticket list (`GET /api/tickets`, `/tickets` page). No ticket detail/update/assignment, no AI features, no real email provider integration, no outbound sending — check `implementation-plan.md` and the relevant `client/src/pages/`/`server/src/routes/` files before assuming something exists.
 
 ## Test style
 

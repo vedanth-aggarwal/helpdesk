@@ -8,6 +8,9 @@
     "test:ui": "playwright test --ui"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@playwright/test": "^1.58.2",
+    "@types/pg": "^8.15.6",
+    "dotenv": "^17.2.4",
+    "pg": "^8.16.4"
   }
 }

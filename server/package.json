@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "NODE_ENV=production node dist/index.js",
     "seed": "ts-node --transpile-only prisma/seed.ts",
+    "seed:tickets": "ts-node --transpile-only prisma/seed-tickets.ts",
     "seed:test": "dotenv -e .env.test -- ts-node --transpile-only prisma/seed.ts",
     "migrate:test": "dotenv -e .env.test -- npx prisma migrate deploy",
     "test": "echo \"Error: no test specified\" && exit 1"

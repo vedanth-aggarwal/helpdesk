@@ -17,6 +17,9 @@ export function Layout() {
           <Link to="/" className="font-semibold text-gray-900">
             Helpdesk
           </Link>
+          <Link to="/tickets" className="text-sm text-gray-700 hover:text-gray-900">
+            Tickets
+          </Link>
           {session?.user.role === "ADMIN" && (
             <Link
               to="/users"
