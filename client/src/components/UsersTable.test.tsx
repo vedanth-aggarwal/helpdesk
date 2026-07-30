@@ -22,13 +22,13 @@ const users: UserRow[] = [
 
 describe("UsersTable", () => {
   it("renders a skeleton row per placeholder while loading", () => {
-    render(<UsersTable users={undefined} onEdit={vi.fn()} />);
+    render(<UsersTable users={undefined} onEdit={vi.fn()} onDelete={vi.fn()} />);
 
     expect(screen.getAllByRole("row")).toHaveLength(6); // header + 5 skeleton rows
   });
 
   it("renders an edit button for each user", () => {
-    render(<UsersTable users={users} onEdit={vi.fn()} />);
+    render(<UsersTable users={users} onEdit={vi.fn()} onDelete={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Edit Ada Lovelace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit Grace Hopper" })).toBeInTheDocument();
@@ -37,10 +37,34 @@ describe("UsersTable", () => {
   it("calls onEdit with the clicked user's data", async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    render(<UsersTable users={users} onEdit={onEdit} />);
+    render(<UsersTable users={users} onEdit={onEdit} onDelete={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Edit Grace Hopper" }));
 
     expect(onEdit).toHaveBeenCalledWith(users[1]);
+  });
+
+  it("renders a delete button for each user", () => {
+    render(<UsersTable users={users} onEdit={vi.fn()} onDelete={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Delete Ada Lovelace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Grace Hopper" })).toBeInTheDocument();
+  });
+
+  it("calls onDelete with the clicked user's data", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<UsersTable users={users} onEdit={vi.fn()} onDelete={onDelete} />);
+
+    await user.click(screen.getByRole("button", { name: "Delete Grace Hopper" }));
+
+    expect(onDelete).toHaveBeenCalledWith(users[1]);
+  });
+
+  it("disables the delete button for an admin user", () => {
+    render(<UsersTable users={users} onEdit={vi.fn()} onDelete={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Delete Ada Lovelace" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete Grace Hopper" })).not.toBeDisabled();
   });
 });

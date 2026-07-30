@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth";
+import { prisma } from "../db";
 
 declare global {
   namespace Express {
@@ -16,6 +17,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   });
 
   if (!session) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { deletedAt: true },
+  });
+
+  if (!user || user.deletedAt) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 

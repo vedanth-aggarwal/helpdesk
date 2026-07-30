@@ -7,12 +7,13 @@ import { api } from "@/lib/api";
 import { renderWithQuery } from "@/test/renderWithQuery";
 
 vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
 const mockedGet = vi.mocked(api.get);
 const mockedPost = vi.mocked(api.post);
 const mockedPatch = vi.mocked(api.patch);
+const mockedDelete = vi.mocked(api.delete);
 
 function renderUsers() {
   return renderWithQuery(<Users />);
@@ -40,6 +41,7 @@ describe("Users", () => {
     mockedGet.mockReset();
     mockedPost.mockReset();
     mockedPatch.mockReset();
+    mockedDelete.mockReset();
     mockedGet.mockResolvedValue({ data: users });
   });
 
@@ -280,6 +282,47 @@ describe("Users", () => {
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("has a disabled delete button for the admin row", async () => {
+    renderUsers();
+
+    await waitFor(() => {
+      expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: "Delete Ada Lovelace" })).toBeDisabled();
+  });
+
+  it("deletes a user from the row's delete button after confirming", async () => {
+    const user = userEvent.setup();
+    mockedDelete.mockResolvedValue({ data: undefined });
+
+    renderUsers();
+
+    await waitFor(() => {
+      expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Delete Grace Hopper" }));
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Delete Grace Hopper?")).toBeInTheDocument();
+
+    mockedGet.mockResolvedValue({ data: [users[0]] });
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(mockedDelete).toHaveBeenCalledWith("/api/users/2");
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
     });
   });
 });

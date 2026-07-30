@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -21,9 +21,10 @@ export interface UserRow {
 interface UsersTableProps {
   users: UserRow[] | undefined;
   onEdit: (user: UserRow) => void;
+  onDelete: (user: UserRow) => void;
 }
 
-export function UsersTable({ users, onEdit }: UsersTableProps) {
+export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
   if (!users) {
     return (
       <Table className="mt-4">
@@ -77,7 +78,7 @@ export function UsersTable({ users, onEdit }: UsersTableProps) {
             <TableCell>{user.email}</TableCell>
             <TableCell>{user.role}</TableCell>
             <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-            <TableCell>
+            <TableCell className="flex gap-1">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -85,6 +86,16 @@ export function UsersTable({ users, onEdit }: UsersTableProps) {
                 onClick={() => onEdit(user)}
               >
                 <Pencil />
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon-sm"
+                aria-label={`Delete ${user.name}`}
+                disabled={user.role === "ADMIN"}
+                title={user.role === "ADMIN" ? "Admin users cannot be deleted" : undefined}
+                onClick={() => onDelete(user)}
+              >
+                <Trash2 />
               </Button>
             </TableCell>
           </TableRow>

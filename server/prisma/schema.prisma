@@ -17,6 +17,18 @@ enum Role {
   AGENT
 }
 
+enum TicketStatus {
+  OPEN
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  GENERAL_QUESTION
+  TECHNICAL_QUESTION
+  REFUND_REQUEST
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -26,6 +38,7 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
   updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
   sessions      Session[]
   accounts      Account[]
 
@@ -66,6 +79,21 @@ model Account {
 
   @@index([userId])
   @@map("account")
+}
+
+model Ticket {
+  id             Int             @id @default(autoincrement())
+  subject        String
+  body           String
+  requesterEmail String
+  requesterName  String
+  status         TicketStatus    @default(OPEN)
+  category       TicketCategory?
+  messageId      String?         @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("ticket")
 }
 
 model Verification {

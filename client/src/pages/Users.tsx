@@ -4,12 +4,14 @@ import { isAxiosError } from "axios";
 import { api } from "@/lib/api";
 import { CreateUserDialog } from "@/components/CreateUserDialog";
 import { EditUserDialog } from "@/components/EditUserDialog";
+import { DeleteUserDialog } from "@/components/DeleteUserDialog";
 import { UsersTable, type UserRow } from "@/components/UsersTable";
 import { Button } from "@/components/ui/button";
 
 export function Users() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
   const { data: users, error } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -36,10 +38,16 @@ export function Users() {
         user={editingUser}
         onOpenChange={(open) => !open && setEditingUser(null)}
       />
+      <DeleteUserDialog
+        user={deletingUser}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+      />
 
       {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
 
-      {!errorMessage && <UsersTable users={users} onEdit={setEditingUser} />}
+      {!errorMessage && (
+        <UsersTable users={users} onEdit={setEditingUser} onDelete={setDeletingUser} />
+      )}
     </div>
   );
 }

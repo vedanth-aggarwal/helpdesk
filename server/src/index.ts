@@ -6,6 +6,7 @@ import { prisma } from "./db";
 import { auth } from "./auth";
 import { requireAuth } from "./middleware/requireAuth";
 import { usersRouter } from "./routes/users";
+import { inboundEmailRouter } from "./routes/inboundEmail";
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.get("/api/me", requireAuth, (req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+app.use("/api/inbound-email", inboundEmailRouter);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
