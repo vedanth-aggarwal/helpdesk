@@ -3,11 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { api } from "@/lib/api";
 import { CreateUserDialog } from "@/components/CreateUserDialog";
+import { EditUserDialog } from "@/components/EditUserDialog";
 import { UsersTable, type UserRow } from "@/components/UsersTable";
 import { Button } from "@/components/ui/button";
 
 export function Users() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const { data: users, error } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -30,10 +32,14 @@ export function Users() {
       </div>
 
       <CreateUserDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <EditUserDialog
+        user={editingUser}
+        onOpenChange={(open) => !open && setEditingUser(null)}
+      />
 
       {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
 
-      {!errorMessage && <UsersTable users={users} />}
+      {!errorMessage && <UsersTable users={users} onEdit={setEditingUser} />}
     </div>
   );
 }

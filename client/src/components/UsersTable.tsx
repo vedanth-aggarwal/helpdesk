@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -7,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export interface UserRow {
   id: string;
@@ -18,9 +20,10 @@ export interface UserRow {
 
 interface UsersTableProps {
   users: UserRow[] | undefined;
+  onEdit: (user: UserRow) => void;
 }
 
-export function UsersTable({ users }: UsersTableProps) {
+export function UsersTable({ users, onEdit }: UsersTableProps) {
   if (!users) {
     return (
       <Table className="mt-4">
@@ -30,6 +33,7 @@ export function UsersTable({ users }: UsersTableProps) {
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Created</TableHead>
+            <TableHead className="w-0" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -47,6 +51,7 @@ export function UsersTable({ users }: UsersTableProps) {
               <TableCell>
                 <Skeleton className="h-4 w-20" />
               </TableCell>
+              <TableCell />
             </TableRow>
           ))}
         </TableBody>
@@ -62,6 +67,7 @@ export function UsersTable({ users }: UsersTableProps) {
           <TableHead>Email</TableHead>
           <TableHead>Role</TableHead>
           <TableHead>Created</TableHead>
+          <TableHead className="w-0" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -71,6 +77,16 @@ export function UsersTable({ users }: UsersTableProps) {
             <TableCell>{user.email}</TableCell>
             <TableCell>{user.role}</TableCell>
             <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+            <TableCell>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${user.name}`}
+                onClick={() => onEdit(user)}
+              >
+                <Pencil />
+              </Button>
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

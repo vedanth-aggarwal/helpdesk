@@ -1,27 +1,21 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AxiosError, AxiosHeaders } from "axios";
 import { Users } from "./Users";
 import { api } from "@/lib/api";
+import { renderWithQuery } from "@/test/renderWithQuery";
 
 vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn(), post: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }));
 
 const mockedGet = vi.mocked(api.get);
 const mockedPost = vi.mocked(api.post);
+const mockedPatch = vi.mocked(api.patch);
 
 function renderUsers() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <Users />
-    </QueryClientProvider>,
-  );
+  return renderWithQuery(<Users />);
 }
 
 const users = [
@@ -45,6 +39,7 @@ describe("Users", () => {
   beforeEach(() => {
     mockedGet.mockReset();
     mockedPost.mockReset();
+    mockedPatch.mockReset();
     mockedGet.mockResolvedValue({ data: users });
   });
 
@@ -122,6 +117,45 @@ describe("Users", () => {
     await user.click(screen.getByRole("button", { name: "Add user" }));
 
     expect(screen.getByText("Create a new agent account. They'll be able to sign in with the email and password below.")).toBeInTheDocument();
+  });
+
+  it("closes the create user dialog when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    renderUsers();
+
+    await waitFor(() => {
+      expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add user" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("closes the create user dialog when clicking outside", async () => {
+    const user = userEvent.setup();
+    renderUsers();
+
+    await waitFor(() => {
+      expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add user" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+    expect(overlay).not.toBeNull();
+    await user.click(overlay as Element);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 
   it("shows validation errors for invalid input", async () => {
@@ -209,5 +243,43 @@ describe("Users", () => {
 
     expect(await screen.findByText("Email already in use")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("edits a user from the row's edit button, prefilled with their data", async () => {
+    const user = userEvent.setup();
+    mockedPatch.mockResolvedValue({
+      data: { ...users[0], name: "Ada Byron" },
+    });
+
+    renderUsers();
+
+    await waitFor(() => {
+      expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Edit Ada Lovelace" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Edit user")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveValue("Ada Lovelace");
+    expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+
+    const nameInput = screen.getByLabelText("Name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Ada Byron");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(mockedPatch).toHaveBeenCalledWith("/api/users/1", {
+        name: "Ada Byron",
+        email: "ada@example.com",
+        password: "",
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 });

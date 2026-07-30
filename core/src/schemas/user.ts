@@ -12,3 +12,20 @@ export const createUserSchema = z.object({
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+/**
+ * Derived from createUserSchema (not redefined) so name/email rules and
+ * messages can't drift between create and edit. Password is optional here —
+ * blank means "don't change the password", enforced by the admin "Edit user"
+ * form and the PATCH /api/users/:id route handler.
+ */
+export const updateUserSchema = createUserSchema.omit({ password: true }).extend({
+  password: z
+    .string()
+    .optional()
+    .refine((val) => !val || val.length >= 8, {
+      message: "Password must be at least 8 characters",
+    }),
+});
+
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

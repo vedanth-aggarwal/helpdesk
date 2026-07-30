@@ -1,9 +1,10 @@
-import { createUserSchema, type CreateUserInput } from "@helpdesk/core";
+import { updateUserSchema, type UpdateUserInput } from "@helpdesk/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import { api } from "@/lib/api";
+import type { UserRow } from "@/components/UsersTable";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,44 +17,44 @@ import {
 import { FieldError, FieldGroup } from "@/components/ui/field";
 import { UserFormFields } from "@/components/UserFormFields";
 
-interface CreateUserDialogProps {
-  open: boolean;
+interface EditUserDialogProps {
+  user: UserRow | null;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
+export function EditUserDialog({ user, onOpenChange }: EditUserDialogProps) {
   const queryClient = useQueryClient();
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreateUserInput>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UpdateUserInput>({
+    resolver: zodResolver(updateUserSchema),
+    values: user ? { name: user.name, email: user.email, password: "" } : undefined,
   });
 
   const mutation = useMutation({
-    mutationFn: (values: CreateUserInput) => api.post("/api/users", values),
+    mutationFn: (values: UpdateUserInput) => api.patch(`/api/users/${user!.id}`, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      reset();
       onOpenChange(false);
     },
   });
 
-  const onSubmit = (values: CreateUserInput) => {
+  const onSubmit = (values: UpdateUserInput) => {
     mutation.mutate(values);
   };
 
   const serverError = mutation.error
     ? isAxiosError(mutation.error)
       ? mutation.error.response?.data?.error || mutation.error.message
-      : "Failed to create user"
+      : "Failed to update user"
     : null;
 
   return (
     <Dialog
-      open={open}
+      open={!!user}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           reset();
@@ -64,20 +65,23 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add user</DialogTitle>
+          <DialogTitle>Edit user</DialogTitle>
           <DialogDescription>
-            Create a new agent account. They&apos;ll be able to sign in with the
-            email and password below.
+            Update {user?.name}&apos;s account details.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <FieldGroup>
-            <UserFormFields register={register} errors={errors} />
+            <UserFormFields
+              register={register}
+              errors={errors}
+              passwordHint="Leave blank to keep the current password"
+            />
             {serverError && <FieldError>{serverError}</FieldError>}
           </FieldGroup>
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting || mutation.isPending}>
-              {isSubmitting || mutation.isPending ? "Creating…" : "Create user"}
+              {isSubmitting || mutation.isPending ? "Saving…" : "Save changes"}
             </Button>
           </DialogFooter>
         </form>
