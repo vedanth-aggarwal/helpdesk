@@ -12,8 +12,9 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 
 - `client/` — Vite + React 19 + TypeScript SPA
 - `server/` — Express 5 + TypeScript API
+- `core/` — `@helpdesk/core`, TypeScript package of zod schemas/types shared by `client/` and `server/` (see Validation below)
 - `e2e/` — Playwright end-to-end tests, own `package.json` (see the `e2e-test-writer` agent for how the harness works and how to write specs)
-- No root-level scripts; `cd` into `client/`, `server/`, or `e2e/` to run anything.
+- No root-level scripts and no npm workspaces; each directory is its own npm project — `cd` into `client/`, `server/`, `core/`, or `e2e/` to run anything.
 
 ## Commands
 
@@ -24,6 +25,12 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - `npm test` — `vitest run`, runs all component tests once (CI/one-shot)
 - `npm run test:watch` — `vitest` in watch mode, for actively writing/iterating on tests
 - `npx shadcn@latest add <component>` — add a new shadcn/ui component
+
+### Core (`core/`)
+- `npm run build` — `tsc`, emits CommonJS + `.d.ts` to `core/dist` (what `client/` and `server/` actually import)
+- `npm run dev` — `tsc --watch`, for editing schemas while a client/server dev server is running
+- `npm run typecheck` — `tsc --noEmit`
+- **After changing anything in `core/src`, rebuild** — consumers read `core/dist`, not the source. Restart the Vite dev server too (it pre-bundles the package, see Validation below).
 
 ### Server (`server/`)
 - `npm run dev` — ts-node-dev on `src/index.ts` (default port 4000), auto-respawns
@@ -60,6 +67,28 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - `auth-client.ts` registers `inferAdditionalFields` (from `better-auth/client/plugins`) with a manually declared `{ user: { role: { type: "string" } } }` schema so `session.user.role` is typed on the client. Declare it manually rather than importing `typeof auth` from the server — `client/` and `server/` are separate npm projects with separate tsconfigs, and `client/tsconfig.app.json`'s `include: ["src"]` makes cross-package imports fragile.
 - User management endpoints aren't built yet and self-serve signup is disabled, so there is currently no way to create an agent/admin user through the app. To create one manually, follow the pattern in `server/prisma/seed.ts`: create the `User` row via Prisma, hash the password with `hashPassword` from `better-auth/crypto`, and insert a matching `Account` row (`providerId: "credential"`). Run one-off scripts with `npx ts-node --transpile-only <script>.ts` from `server/` (plain `ts-node` fails under `verbatimModuleSyntax`), and delete the script afterward — prefer real user-management endpoints once they exist (see `implementation-plan.md`).
 
+### Validation
+- **Use zod for all data validation, on both sides of the wire** — never hand-rolled `typeof` checks or ad-hoc regexes. It's a dependency of `client/`, `server/`, and `core/`.
+- **Any schema both the client and the server need is defined exactly once, in `core/`** — never declare it in `client/` and again in `server/`, and never validate against a locally re-declared copy "just for the form". Two definitions of the same rule always drift. Schemas that are genuinely one-sided (a client-only UI filter, a server-only env parse, `Login.tsx`'s `loginSchema` — login is handled by Better Auth's own endpoint) stay local to that package.
+- **Adding a new shared schema** (do this whenever a new form posts to a new endpoint — e.g. ticket create/update next):
+  1. Define it in `core/src/schemas/<domain>.ts` — the schema plus its inferred input type (`export type XInput = z.infer<typeof xSchema>`), with the user-facing message as the second argument to every rule.
+  2. Re-export both from the `core/src/index.ts` barrel (`export { … }` / `export type { … }` — the barrel splits value and type exports).
+  3. `npm run build` in `core/`.
+  4. Import it in the form and in the route handler: `import { xSchema, type XInput } from "@helpdesk/core"`.
+  - `core/src/schemas/user.ts` → `CreateUserDialog.tsx` + `server/src/routes/users.ts` is the reference example end to end.
+- Client side of a shared schema: feed it to **`react-hook-form` via `zodResolver`** (`@hookform/resolvers/zod`) — `useForm<CreateUserInput>({ resolver: zodResolver(createUserSchema) })`, per-field messages rendered through shadcn's `FieldError` (see `CreateUserDialog.tsx`). Use the type inferred in `core` as the form-values type; don't re-infer it locally.
+- Server side of a shared schema: `<schema>.safeParse(req.body)` as the first thing in the handler, and on failure return `400 { error: <first issue message> }` — that shape is what the client surfaces through `FieldError`. Read the validated values off `parsed.data`, never `req.body`, so transforms like `.trim()` apply and the values are typed. `server/tsconfig.json` sets `noUncheckedIndexedAccess`, so `parsed.error.issues[0]` needs a `?.`/fallback.
+- Because the schema is shared, error message strings are defined in one place — e2e and component tests assert on them, so changing a message in `core/` changes both sides at once (and requires a `core` rebuild before tests see it).
+- Zod v4 API: use the top-level string formats (`z.email()`, `z.uuid()`, `z.url()`), not the deprecated v3 method chains (`z.string().email()`).
+- Validation is defense in depth, not a substitute for the `requireAuth`/`requireAdmin` middleware — a route needs both.
+
+### The `core` package
+- `core/` is wired in as a plain `file:` dependency (`"@helpdesk/core": "file:../core"` in both `client/package.json` and `server/package.json`), which npm installs as a symlink. Deliberately **not** npm workspaces — that would need a root `package.json` and change the per-directory workflow everything else assumes.
+- It compiles to **CommonJS + declarations** in `core/dist`, exposed via `main`/`types`. CJS because `server/` is `module: "commonjs"` with node10 resolution, which ignores `exports` maps.
+- zod is a **peer** dependency of `core` (plus a devDependency for building it), so consumers supply their own copy and the client bundle doesn't get two zod instances.
+- Vite skips pre-bundling linked dependencies, so a linked CJS package would reach the browser as raw `require`/`exports`. Both `client/vite.config.ts` and `client/vitest.config.ts` therefore set `optimizeDeps: { include: ['@helpdesk/core'] }`. Keep those two configs in sync.
+- `core/dist` is committed (matching `server/dist`); run `npm run build` in `core/` after editing it so the checked-in output doesn't go stale.
+
 ### Database
 - Postgres via `@prisma/adapter-pg` (driver adapter, not the default Prisma engine connection) — see `server/src/db.ts`. `DATABASE_URL` comes from env.
 - Generated Prisma client lives in `server/src/generated/prisma/` (checked into the repo path, but generated — regenerate after schema changes rather than hand-editing).
@@ -68,7 +97,7 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - Tailwind CSS v4 (via `@tailwindcss/vite`, no separate config file — theme lives in `client/src/index.css`).
 - shadcn/ui is installed with the default theme (style `base-nova`, neutral base color, Lucide icons, Geist Variable font). Components live in `client/src/components/ui/`. Prefer adding new components with the shadcn CLI over hand-rolling Tailwind primitives, and use the `Field`/`FieldGroup`/`FieldLabel`/`FieldError` components for form layout/validation to stay consistent with `Login.tsx`.
 - Path alias `@/*` → `client/src/*`, configured in `tsconfig.json`, `tsconfig.app.json`, and `vite.config.ts`. `baseUrl` is intentionally omitted from the tsconfig files — under `moduleResolution: "bundler"` it's not needed for `paths` to resolve, and adding it back triggers a TS5101 deprecation error.
-- Forms use `react-hook-form` + `zod` via `@hookform/resolvers`.
+- Forms use `react-hook-form` + `zod` via `@hookform/resolvers/zod`'s `zodResolver`, with the schema imported from `@helpdesk/core` — see Validation above. `Login.tsx` and `CreateUserDialog.tsx` are the reference implementations.
 - Data fetching to the Express API uses `axios` + `@tanstack/react-query` — not raw `fetch`. `client/src/lib/api.ts` exports `api`, an axios instance (`baseURL: VITE_SERVER_URL`, `withCredentials: true`); import it and call `api.get/post/...` inside a `useQuery`/`useMutation` `queryFn`/`mutationFn` rather than fetching directly in components. The root `QueryClientProvider` is set up in `client/src/main.tsx`. This is separate from Better Auth's own client (`auth-client.ts`), which stays on `better-auth/react`'s `createAuthClient`/`useSession` — only non-auth API calls (e.g. `/api/users`) go through `api`.
 
 ## Environment

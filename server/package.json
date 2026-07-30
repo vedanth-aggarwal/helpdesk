@@ -17,13 +17,15 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@helpdesk/core": "file:../core",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "better-auth": "^1.6.25",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

@@ -10,6 +10,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Mirrors vite.config.ts — @helpdesk/core is a linked CommonJS package.
+  optimizeDeps: {
+    include: ['@helpdesk/core'],
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

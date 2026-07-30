@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+
+    // CommonJS output so `server/` (module: "commonjs") can require it directly,
+    // and so Vite can pre-bundle it for `client/` (see optimizeDeps in
+    // client/vite.config.ts). Consumers resolve it via "main"/"types".
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "target": "es2020",
+    "lib": ["es2020"],
+    "types": [],
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  },
+  "include": ["src"]
+}

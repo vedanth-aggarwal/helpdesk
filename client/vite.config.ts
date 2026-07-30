@@ -11,4 +11,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // @helpdesk/core is a linked (file:../core) CommonJS package, and Vite skips
+  // pre-bundling for linked deps by default — without this the browser gets raw
+  // `exports`/`require` and blows up.
+  optimizeDeps: {
+    include: ['@helpdesk/core'],
+  },
 })

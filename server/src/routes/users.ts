@@ -1,4 +1,7 @@
+import { randomUUID } from "crypto";
 import { Router } from "express";
+import { hashPassword } from "better-auth/crypto";
+import { createUserSchema } from "@helpdesk/core";
 import { prisma } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireAdmin } from "../middleware/requireAdmin";
@@ -18,4 +21,50 @@ usersRouter.get("/", requireAuth, requireAdmin, async (_req, res) => {
   });
 
   res.json(users);
+});
+
+usersRouter.post("/", requireAuth, requireAdmin, async (req, res) => {
+  const parsed = createUserSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: parsed.error.issues[0]?.message ?? "Invalid request body" });
+  }
+
+  const { name, email, password } = parsed.data;
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return res.status(409).json({ error: "Email already in use" });
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name,
+      role: "AGENT",
+      emailVerified: true,
+    },
+  });
+
+  const hashed = await hashPassword(password);
+
+  await prisma.account.create({
+    data: {
+      id: randomUUID(),
+      userId: user.id,
+      accountId: user.id,
+      providerId: "credential",
+      password: hashed,
+    },
+  });
+
+  res.status(201).json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+  });
 });
