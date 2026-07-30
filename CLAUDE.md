@@ -60,6 +60,7 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - shadcn/ui is installed with the default theme (style `base-nova`, neutral base color, Lucide icons, Geist Variable font). Components live in `client/src/components/ui/`. Prefer adding new components with the shadcn CLI over hand-rolling Tailwind primitives, and use the `Field`/`FieldGroup`/`FieldLabel`/`FieldError` components for form layout/validation to stay consistent with `Login.tsx`.
 - Path alias `@/*` → `client/src/*`, configured in `tsconfig.json`, `tsconfig.app.json`, and `vite.config.ts`. `baseUrl` is intentionally omitted from the tsconfig files — under `moduleResolution: "bundler"` it's not needed for `paths` to resolve, and adding it back triggers a TS5101 deprecation error.
 - Forms use `react-hook-form` + `zod` via `@hookform/resolvers`.
+- Data fetching to the Express API uses `axios` + `@tanstack/react-query` — not raw `fetch`. `client/src/lib/api.ts` exports `api`, an axios instance (`baseURL: VITE_SERVER_URL`, `withCredentials: true`); import it and call `api.get/post/...` inside a `useQuery`/`useMutation` `queryFn`/`mutationFn` rather than fetching directly in components. The root `QueryClientProvider` is set up in `client/src/main.tsx`. This is separate from Better Auth's own client (`auth-client.ts`), which stays on `better-auth/react`'s `createAuthClient`/`useSession` — only non-auth API calls (e.g. `/api/users`) go through `api`.
 
 ## Environment
 

@@ -14,9 +14,8 @@ export function Layout() {
     <div className="min-h-screen bg-gray-50">
       <nav className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
         <div className="flex items-center gap-6">
-          <span className="font-semibold text-gray-900">Helpdesk</span>
-          <Link to="/" className="text-sm text-gray-700 hover:text-gray-900">
-            Home
+          <Link to="/" className="font-semibold text-gray-900">
+            Helpdesk
           </Link>
           {session?.user.role === "ADMIN" && (
             <Link
