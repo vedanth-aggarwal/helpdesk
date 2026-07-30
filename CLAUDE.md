@@ -21,6 +21,8 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - `npm run dev` — Vite dev server (default port 5173)
 - `npm run build` — `tsc -b && vite build`
 - `npm run lint` — oxlint
+- `npm test` — `vitest run`, runs all component tests once (CI/one-shot)
+- `npm run test:watch` — `vitest` in watch mode, for actively writing/iterating on tests
 - `npx shadcn@latest add <component>` — add a new shadcn/ui component
 
 ### Server (`server/`)
@@ -34,6 +36,13 @@ Current state: only auth/login and route scaffolding are built (see `implementat
 - `npx prisma migrate dev` — create/apply a migration in development
 - `npx prisma generate` — regenerate the client (output goes to `server/src/generated/prisma`, not `node_modules`)
 - Schema: `server/prisma/schema.prisma`. Config (schema/migration paths, datasource URL): `server/prisma.config.ts`, not the schema file's `datasource` block.
+
+### Component tests (`client/`)
+- Vitest + React Testing Library (`@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`), config in `client/vitest.config.ts`, jsdom env, setup file `client/src/test/setup.ts` (registers jest-dom matchers).
+- Write these directly (no dedicated agent, unlike e2e specs — see below) as `*.test.tsx` colocated next to the component, e.g. `client/src/pages/Users.tsx` → `client/src/pages/Users.test.tsx`.
+- Mock `@/lib/api` with `vi.mock` rather than hitting a real server — component tests should be fast and isolated; server behavior is covered by e2e specs instead.
+- Any component using `@tanstack/react-query` (`useQuery`/`useMutation`) needs to render inside a `QueryClientProvider` with a fresh `QueryClient` (`retry: false` in `defaultOptions.queries`, so failed-request tests don't hang on retries). See `client/src/pages/Users.test.tsx` for the pattern; if a second test file needs the same wrapper, extract it to a shared `renderWithQuery` helper under `client/src/test/` rather than duplicating it — not worth it for a single call site.
+- Run with `npm test` (one-shot) or `npm run test:watch` (watch mode) from `client/`.
 
 ### E2E tests (`e2e/`)
 - **Always use the `e2e-test-writer` agent to write or update Playwright specs** — invoke it (via the Agent/Task tool) rather than writing `e2e/tests/**/*.spec.ts` files directly. It knows the harness (isolated `helpdesk_test` DB, `webServer` config, seeded admin credentials) and this app's current feature surface, so tests it writes match how the app actually behaves instead of guessing. This applies whenever the user asks for e2e/browser test coverage, and proactively after finishing a new user-facing flow that should get coverage.
