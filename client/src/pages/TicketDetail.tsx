@@ -1,9 +1,10 @@
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
+import type { TicketCategory, TicketStatusFilter } from "@helpdesk/core";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 import { authClient } from "@/lib/auth-client";
-import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
+import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS, SENDER_TYPE_LABELS } from "@/lib/ticketLabels";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -12,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ReplyForm } from "@/components/ReplyForm";
 
 interface Agent {
   id: string;
@@ -19,16 +21,13 @@ interface Agent {
   email: string;
 }
 
-type TicketStatus = "OPEN" | "RESOLVED" | "CLOSED";
-type TicketCategory = "GENERAL_QUESTION" | "TECHNICAL_QUESTION" | "REFUND_REQUEST";
-
 interface TicketDetailResponse {
   id: number;
   subject: string;
   body: string;
   requesterEmail: string;
   requesterName: string;
-  status: TicketStatus;
+  status: TicketStatusFilter;
   category: TicketCategory | null;
   assignee: Agent | null;
   messageId: string | null;
@@ -36,10 +35,20 @@ interface TicketDetailResponse {
   updatedAt: string;
 }
 
+type SenderType = "AGENT" | "CUSTOMER";
+
+interface Reply {
+  id: number;
+  body: string;
+  senderType: SenderType;
+  createdAt: string;
+  author: { id: string; name: string };
+}
+
 const UNASSIGNED = "UNASSIGNED" as const;
 const UNCATEGORIZED = "UNCATEGORIZED" as const;
 
-const statusOptions: TicketStatus[] = ["OPEN", "RESOLVED", "CLOSED"];
+const statusOptions: TicketStatusFilter[] = ["OPEN", "RESOLVED", "CLOSED"];
 const categoryOptions: TicketCategory[] = [
   "GENERAL_QUESTION",
   "TECHNICAL_QUESTION",
@@ -69,6 +78,15 @@ export function TicketDetail() {
     enabled: isAdmin,
   });
 
+  const { data: replies } = useQuery({
+    queryKey: ["ticket", id, "replies"],
+    queryFn: async () => {
+      const res = await api.get<Reply[]>(`/api/tickets/${id}/replies`);
+      return res.data;
+    },
+    enabled: !!ticket,
+  });
+
   const assignMutation = useMutation({
     mutationFn: async (assigneeId: string | null) => {
       const res = await api.patch(`/api/tickets/${id}/assign`, { assigneeId });
@@ -81,7 +99,7 @@ export function TicketDetail() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { status?: TicketStatus; category?: TicketCategory | null }) => {
+    mutationFn: async (data: { status?: TicketStatusFilter; category?: TicketCategory | null }) => {
       const res = await api.patch(`/api/tickets/${id}`, data);
       return res.data;
     },
@@ -91,23 +109,9 @@ export function TicketDetail() {
     },
   });
 
-  const errorMessage = error
-    ? isAxiosError(error)
-      ? error.response?.data?.error || error.message
-      : "Failed to load ticket"
-    : null;
-
-  const assignErrorMessage = assignMutation.error
-    ? isAxiosError(assignMutation.error)
-      ? assignMutation.error.response?.data?.error || assignMutation.error.message
-      : "Failed to update assignment"
-    : null;
-
-  const updateErrorMessage = updateMutation.error
-    ? isAxiosError(updateMutation.error)
-      ? updateMutation.error.response?.data?.error || updateMutation.error.message
-      : "Failed to update ticket"
-    : null;
+  const errorMessage = getErrorMessage(error, "Failed to load ticket");
+  const assignErrorMessage = getErrorMessage(assignMutation.error, "Failed to update assignment");
+  const updateErrorMessage = getErrorMessage(updateMutation.error, "Failed to update ticket");
 
   return (
     <div className="p-6">
@@ -136,7 +140,9 @@ export function TicketDetail() {
               Status:{" "}
               <Select
                 value={ticket.status}
-                onValueChange={(value) => updateMutation.mutate({ status: value as TicketStatus })}
+                onValueChange={(value) =>
+                  updateMutation.mutate({ status: value as TicketStatusFilter })
+                }
               >
                 <SelectTrigger aria-label="Status" className="h-7 w-36">
                   <SelectValue>{() => TICKET_STATUS_LABELS[ticket.status]}</SelectValue>
@@ -223,6 +229,30 @@ export function TicketDetail() {
           <div className="mt-6 whitespace-pre-wrap rounded-md border border-gray-200 bg-white p-4 text-sm">
             {ticket.body}
           </div>
+
+          <div className="mt-6 space-y-3">
+            <h2 className="text-sm font-semibold text-gray-900">Replies</h2>
+            {replies?.length === 0 && (
+              <p className="text-sm text-muted-foreground">No replies yet.</p>
+            )}
+            {replies?.map((reply) => (
+              <div
+                key={reply.id}
+                className="whitespace-pre-wrap rounded-md border border-gray-200 bg-white p-4 text-sm"
+              >
+                <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-gray-900">{reply.author.name}</span>
+                  <span className="rounded-full border border-gray-200 px-2 py-0.5">
+                    {SENDER_TYPE_LABELS[reply.senderType]}
+                  </span>
+                  <span>{new Date(reply.createdAt).toLocaleString()}</span>
+                </div>
+                <div>{reply.body}</div>
+              </div>
+            ))}
+          </div>
+
+          <ReplyForm ticketId={id!} />
         </>
       )}
     </div>

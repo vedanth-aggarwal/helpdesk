@@ -7,9 +7,10 @@ import { TicketDetail } from "./TicketDetail";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { renderWithQuery } from "@/test/renderWithQuery";
+import { mockSessionValue } from "@/test/mockSession";
 
 vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn(), patch: vi.fn() },
+  api: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -18,13 +19,11 @@ vi.mock("@/lib/auth-client", () => ({
 
 const mockedGet = vi.mocked(api.get);
 const mockedPatch = vi.mocked(api.patch);
+const mockedPost = vi.mocked(api.post);
 const mockedUseSession = vi.mocked(authClient.useSession);
 
 function mockSession(role: "ADMIN" | "AGENT") {
-  mockedUseSession.mockReturnValue({
-    data: { user: { role } },
-    isPending: false,
-  } as ReturnType<typeof authClient.useSession>);
+  mockedUseSession.mockReturnValue(mockSessionValue({ role }));
 }
 
 function renderDetail(id = "1") {
@@ -56,15 +55,40 @@ const agents = [
   { id: "agent-2", name: "Priya Patel", email: "priya@example.com" },
 ];
 
+const replies = [
+  {
+    id: 1,
+    body: "Thanks for reaching out, looking into this now.",
+    senderType: "AGENT" as const,
+    createdAt: "2026-07-30T09:00:00.000Z",
+    author: { id: "agent-1", name: "Alex Kim" },
+  },
+];
+
+const multipleReplies = [
+  ...replies,
+  {
+    id: 2,
+    body: "Actually, I fixed it myself, thanks!",
+    senderType: "CUSTOMER" as const,
+    createdAt: "2026-07-30T09:10:00.000Z",
+    author: { id: "requester-1", name: "Jane Doe" },
+  },
+];
+
 describe("TicketDetail", () => {
   beforeEach(() => {
     mockedGet.mockReset();
     mockedPatch.mockReset();
+    mockedPost.mockReset();
     mockedUseSession.mockReset();
     mockSession("AGENT");
     mockedGet.mockImplementation(async (url: string) => {
       if (url === "/api/agents") {
         return { data: agents };
+      }
+      if (url === "/api/tickets/1/replies") {
+        return { data: replies };
       }
       return { data: ticket };
     });
@@ -192,6 +216,113 @@ describe("TicketDetail", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Failed to load ticket")).toBeInTheDocument();
+    });
+  });
+
+  it("renders the reply thread with author name, timestamp, and body", async () => {
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("Alex Kim")).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("Thanks for reaching out, looking into this now."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Agent")).toBeInTheDocument();
+  });
+
+  it("renders multiple replies in the order returned, with per-reply sender type badges", async () => {
+    mockedGet.mockImplementation(async (url: string) => {
+      if (url === "/api/agents") return { data: agents };
+      if (url === "/api/tickets/1/replies") return { data: multipleReplies };
+      return { data: ticket };
+    });
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("Alex Kim")).toBeInTheDocument();
+    });
+
+    const replyBodies = screen
+      .getAllByText(/Thanks for reaching out|Actually, I fixed it myself/)
+      .map((el) => el.textContent);
+    expect(replyBodies).toEqual([
+      "Thanks for reaching out, looking into this now.",
+      "Actually, I fixed it myself, thanks!",
+    ]);
+
+    expect(screen.getByText("Agent")).toBeInTheDocument();
+    expect(screen.getByText("Customer")).toBeInTheDocument();
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+  });
+
+  it("refetches the reply thread after successfully posting a new reply", async () => {
+    mockedPost.mockResolvedValue({
+      data: { id: 3, body: "Following up", createdAt: "2026-07-30T09:20:00.000Z", author: agents[0] },
+    });
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot log in")).toBeInTheDocument();
+    });
+
+    const repliesCallsBefore = mockedGet.mock.calls.filter(
+      ([url]) => url === "/api/tickets/1/replies",
+    ).length;
+
+    await userEvent.type(screen.getByLabelText("Reply"), "Following up");
+    await userEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith("/api/tickets/1/replies", { body: "Following up" });
+    });
+
+    await waitFor(() => {
+      const repliesCallsAfter = mockedGet.mock.calls.filter(
+        ([url]) => url === "/api/tickets/1/replies",
+      ).length;
+      expect(repliesCallsAfter).toBeGreaterThan(repliesCallsBefore);
+    });
+  });
+
+  it("renders 'No replies yet.' when the replies list is empty", async () => {
+    mockedGet.mockImplementation(async (url: string) => {
+      if (url === "/api/agents") return { data: agents };
+      if (url === "/api/tickets/1/replies") return { data: [] };
+      return { data: ticket };
+    });
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("No replies yet.")).toBeInTheDocument();
+    });
+  });
+
+  it("submits a new reply and clears the form", async () => {
+    mockedPost.mockResolvedValue({
+      data: { id: 2, body: "On it!", createdAt: "2026-07-30T09:05:00.000Z", author: agents[0] },
+    });
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot log in")).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByLabelText("Reply");
+    await userEvent.type(textarea, "On it!");
+    await userEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith("/api/tickets/1/replies", { body: "On it!" });
+    });
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue("");
     });
   });
 

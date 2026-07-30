@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ticketUpdateSchema = exports.ticketCategorySchema = exports.ticketAssignSchema = exports.ticketIdParamSchema = exports.ticketQuerySchema = exports.TICKET_PAGE_SIZE = exports.ticketCategoryFilterSchema = exports.ticketStatusFilterSchema = exports.ticketSortFieldSchema = exports.ticketSortFields = void 0;
+exports.ticketReplyCreateSchema = exports.ticketUpdateSchema = exports.ticketCategorySchema = exports.ticketAssignSchema = exports.ticketIdParamSchema = exports.ticketQuerySchema = exports.TICKET_PAGE_SIZE = exports.ticketCategoryFilterSchema = exports.ticketStatusFilterSchema = exports.ticketSortFieldSchema = exports.ticketSortFields = void 0;
 const zod_1 = require("zod");
 exports.ticketSortFields = [
     "subject",
@@ -47,5 +47,8 @@ exports.ticketCategorySchema = zod_1.z.enum([
 exports.ticketUpdateSchema = zod_1.z.object({
     status: exports.ticketStatusFilterSchema.optional(),
     category: exports.ticketCategorySchema.nullable().optional(),
+});
+exports.ticketReplyCreateSchema = zod_1.z.object({
+    body: zod_1.z.string().trim().min(1, "Reply cannot be empty"),
 });
 //# sourceMappingURL=ticket.js.map

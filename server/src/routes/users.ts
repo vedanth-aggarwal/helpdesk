@@ -1,23 +1,26 @@
 import { randomUUID } from "crypto";
 import { Router } from "express";
 import { hashPassword } from "better-auth/crypto";
-import { createUserSchema, updateUserSchema } from "@helpdesk/core";
+import { createUserSchema, updateUserSchema, userIdParamSchema } from "@helpdesk/core";
 import { prisma } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { sendValidationError } from "../lib/validation";
+
+const publicUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  createdAt: true,
+} as const;
 
 export const usersRouter = Router();
 
 usersRouter.get("/", requireAuth, requireAdmin, async (_req, res) => {
   const users = await prisma.user.findMany({
     where: { deletedAt: null },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
+    select: publicUserSelect,
     orderBy: { createdAt: "asc" },
   });
 
@@ -28,9 +31,7 @@ usersRouter.post("/", requireAuth, requireAdmin, async (req, res) => {
   const parsed = createUserSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: parsed.error.issues[0]?.message ?? "Invalid request body" });
+    return sendValidationError(res, parsed.error, "Invalid request body");
   }
 
   const { name, email, password } = parsed.data;
@@ -47,6 +48,7 @@ usersRouter.post("/", requireAuth, requireAdmin, async (req, res) => {
       role: "AGENT",
       emailVerified: true,
     },
+    select: publicUserSelect,
   });
 
   const hashed = await hashPassword(password);
@@ -61,29 +63,27 @@ usersRouter.post("/", requireAuth, requireAdmin, async (req, res) => {
     },
   });
 
-  res.status(201).json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    createdAt: user.createdAt,
-  });
+  res.status(201).json(user);
 });
 
 usersRouter.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const parsed = updateUserSchema.safeParse(req.body);
+  const parsedParams = userIdParamSchema.safeParse(req.params);
 
-  if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: parsed.error.issues[0]?.message ?? "Invalid request body" });
+  if (!parsedParams.success) {
+    return sendValidationError(res, parsedParams.error, "Invalid user id");
   }
 
-  const { id } = req.params;
-  const { name, email, password } = parsed.data;
+  const parsedBody = updateUserSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return sendValidationError(res, parsedBody.error, "Invalid request body");
+  }
+
+  const { id } = parsedParams.data;
+  const { name, email, password } = parsedBody.data;
 
   const existingUser = await prisma.user.findUnique({ where: { id } });
-  if (!existingUser) {
+  if (!existingUser || existingUser.deletedAt) {
     return res.status(404).json({ error: "User not found" });
   }
 
@@ -95,6 +95,7 @@ usersRouter.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
   const user = await prisma.user.update({
     where: { id },
     data: { name, email },
+    select: publicUserSelect,
   });
 
   if (password) {
@@ -105,17 +106,17 @@ usersRouter.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
     });
   }
 
-  res.json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    createdAt: user.createdAt,
-  });
+  res.json(user);
 });
 
 usersRouter.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const { id } = req.params;
+  const parsedParams = userIdParamSchema.safeParse(req.params);
+
+  if (!parsedParams.success) {
+    return sendValidationError(res, parsedParams.error, "Invalid user id");
+  }
+
+  const { id } = parsedParams.data;
 
   const existingUser = await prisma.user.findUnique({ where: { id } });
   if (!existingUser || existingUser.deletedAt) {

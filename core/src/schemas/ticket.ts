@@ -56,6 +56,10 @@ export const ticketUpdateSchema = z.object({
   category: ticketCategorySchema.nullable().optional(),
 });
 
+export const ticketReplyCreateSchema = z.object({
+  body: z.string().trim().min(1, "Reply cannot be empty"),
+});
+
 export type TicketSortField = z.infer<typeof ticketSortFieldSchema>;
 export type TicketStatusFilter = z.infer<typeof ticketStatusFilterSchema>;
 export type TicketCategoryFilter = z.infer<typeof ticketCategoryFilterSchema>;
@@ -64,3 +68,4 @@ export type TicketIdParam = z.infer<typeof ticketIdParamSchema>;
 export type TicketAssignInput = z.infer<typeof ticketAssignSchema>;
 export type TicketCategory = z.infer<typeof ticketCategorySchema>;
 export type TicketUpdateInput = z.infer<typeof ticketUpdateSchema>;
+export type TicketReplyCreateInput = z.infer<typeof ticketReplyCreateSchema>;

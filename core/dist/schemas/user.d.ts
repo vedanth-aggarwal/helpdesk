@@ -22,4 +22,8 @@ export declare const updateUserSchema: z.ZodObject<{
     password: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export declare const userIdParamSchema: z.ZodObject<{
+    id: z.ZodUUID;
+}, z.core.$strip>;
+export type UserIdParam = z.infer<typeof userIdParamSchema>;
 //# sourceMappingURL=user.d.ts.map

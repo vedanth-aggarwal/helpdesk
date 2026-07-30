@@ -1,9 +1,10 @@
 import { createUserSchema, type CreateUserInput } from "@helpdesk/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
+import { withResetOnClose } from "@/lib/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,22 +46,15 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     mutation.mutate(values);
   };
 
-  const serverError = mutation.error
-    ? isAxiosError(mutation.error)
-      ? mutation.error.response?.data?.error || mutation.error.message
-      : "Failed to create user"
-    : null;
+  const serverError = getErrorMessage(mutation.error, "Failed to create user");
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          reset();
-          mutation.reset();
-        }
-        onOpenChange(nextOpen);
-      }}
+      onOpenChange={withResetOnClose(onOpenChange, () => {
+        reset();
+        mutation.reset();
+      })}
     >
       <DialogContent>
         <DialogHeader>

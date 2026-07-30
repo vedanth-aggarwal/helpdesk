@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { TicketCategory, TicketStatusFilter } from "@helpdesk/core";
 import {
   Table,
   TableBody,
@@ -24,8 +25,8 @@ export interface TicketRow {
   subject: string;
   requesterEmail: string;
   requesterName: string;
-  status: "OPEN" | "RESOLVED" | "CLOSED";
-  category: "GENERAL_QUESTION" | "TECHNICAL_QUESTION" | "REFUND_REQUEST" | null;
+  status: TicketStatusFilter;
+  category: TicketCategory | null;
   assignee: { id: string; name: string; email: string } | null;
   createdAt: string;
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
+import { sendValidationError } from "../lib/validation";
 
 export const inboundEmailRouter = Router();
 
@@ -18,9 +19,7 @@ inboundEmailRouter.post("/", requireWebhookSecret, async (req, res) => {
   const parsed = inboundEmailSchema.safeParse(req.body);
 
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: parsed.error.issues[0]?.message ?? "Invalid request body" });
+    return sendValidationError(res, parsed.error, "Invalid request body");
   }
 
   const { fromName, fromEmail, to, subject, body, messageId } = parsed.data;

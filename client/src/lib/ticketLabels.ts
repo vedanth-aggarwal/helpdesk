@@ -12,3 +12,8 @@ export const TICKET_CATEGORY_LABELS: Record<
   TECHNICAL_QUESTION: "Technical Question",
   REFUND_REQUEST: "Refund Request",
 };
+
+export const SENDER_TYPE_LABELS: Record<"AGENT" | "CUSTOMER", string> = {
+  AGENT: "Agent",
+  CUSTOMER: "Customer",
+};

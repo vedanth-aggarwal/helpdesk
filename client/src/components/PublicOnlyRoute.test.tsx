@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { PublicOnlyRoute } from "./PublicOnlyRoute";
 import { authClient } from "@/lib/auth-client";
+import { mockSessionValue } from "@/test/mockSession";
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: { useSession: vi.fn() },
@@ -25,9 +26,7 @@ function renderPublicOnlyRoute() {
 
 describe("PublicOnlyRoute", () => {
   it("shows a loading state while the session is pending", () => {
-    mockedUseSession.mockReturnValue({ data: null, isPending: true } as ReturnType<
-      typeof authClient.useSession
-    >);
+    mockedUseSession.mockReturnValue(mockSessionValue(null, true));
 
     renderPublicOnlyRoute();
 
@@ -36,10 +35,7 @@ describe("PublicOnlyRoute", () => {
   });
 
   it("redirects to / when a session exists", () => {
-    mockedUseSession.mockReturnValue({
-      data: { user: { role: "AGENT" } },
-      isPending: false,
-    } as unknown as ReturnType<typeof authClient.useSession>);
+    mockedUseSession.mockReturnValue(mockSessionValue({ role: "AGENT" }));
 
     renderPublicOnlyRoute();
 
@@ -48,9 +44,7 @@ describe("PublicOnlyRoute", () => {
   });
 
   it("renders the outlet when there is no session", () => {
-    mockedUseSession.mockReturnValue({ data: null, isPending: false } as ReturnType<
-      typeof authClient.useSession
-    >);
+    mockedUseSession.mockReturnValue(mockSessionValue(null));
 
     renderPublicOnlyRoute();
 

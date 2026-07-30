@@ -29,19 +29,25 @@ enum TicketCategory {
   REFUND_REQUEST
 }
 
+enum SenderType {
+  AGENT
+  CUSTOMER
+}
+
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  role            Role      @default(AGENT)
-  createdAt       DateTime  @default(now())
+  id              String        @id @default(uuid())
+  email           String        @unique
+  role            Role          @default(AGENT)
+  createdAt       DateTime      @default(now())
   name            String
-  emailVerified   Boolean   @default(false)
+  emailVerified   Boolean       @default(false)
   image           String?
-  updatedAt       DateTime  @updatedAt
+  updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
   sessions        Session[]
   accounts        Account[]
   assignedTickets Ticket[]
+  ticketReplies   TicketReply[]
 
   @@map("user")
 }
@@ -95,8 +101,22 @@ model Ticket {
   messageId      String?         @unique
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  replies        TicketReply[]
 
   @@map("ticket")
+}
+
+model TicketReply {
+  id         Int        @id @default(autoincrement())
+  body       String
+  ticketId   Int
+  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  senderType SenderType @default(AGENT)
+  createdAt  DateTime   @default(now())
+
+  @@map("ticket_reply")
 }
 
 model Verification {

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateUserSchema = exports.createUserSchema = void 0;
+exports.userIdParamSchema = exports.updateUserSchema = exports.createUserSchema = void 0;
 const zod_1 = require("zod");
 /**
  * Shared by the admin "Add user" form (react-hook-form + zodResolver) and the
@@ -25,5 +25,8 @@ exports.updateUserSchema = exports.createUserSchema.omit({ password: true }).ext
         .refine((val) => !val || val.length >= 8, {
         message: "Password must be at least 8 characters",
     }),
+});
+exports.userIdParamSchema = zod_1.z.object({
+    id: zod_1.z.uuid("Invalid user id"),
 });
 //# sourceMappingURL=user.js.map

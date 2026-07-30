@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
+import { withResetOnClose } from "@/lib/dialog";
 import type { UserRow } from "@/components/UsersTable";
 import {
   AlertDialog,
@@ -30,21 +31,12 @@ export function DeleteUserDialog({ user, onOpenChange }: DeleteUserDialogProps) 
     },
   });
 
-  const serverError = mutation.error
-    ? isAxiosError(mutation.error)
-      ? mutation.error.response?.data?.error || mutation.error.message
-      : "Failed to delete user"
-    : null;
+  const serverError = getErrorMessage(mutation.error, "Failed to delete user");
 
   return (
     <AlertDialog
       open={!!user}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          mutation.reset();
-        }
-        onOpenChange(nextOpen);
-      }}
+      onOpenChange={withResetOnClose(onOpenChange, () => mutation.reset())}
     >
       <AlertDialogContent>
         <AlertDialogHeader>

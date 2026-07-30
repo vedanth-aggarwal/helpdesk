@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 import { CreateUserDialog } from "@/components/CreateUserDialog";
 import { EditUserDialog } from "@/components/EditUserDialog";
 import { DeleteUserDialog } from "@/components/DeleteUserDialog";
@@ -20,11 +20,7 @@ export function Users() {
     },
   });
 
-  const errorMessage = error
-    ? isAxiosError(error)
-      ? error.response?.data?.error || error.message
-      : "Failed to load users"
-    : null;
+  const errorMessage = getErrorMessage(error, "Failed to load users");
 
   return (
     <div className="p-6">

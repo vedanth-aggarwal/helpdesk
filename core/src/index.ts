@@ -1,5 +1,5 @@
-export { createUserSchema, updateUserSchema } from "./schemas/user";
-export type { CreateUserInput, UpdateUserInput } from "./schemas/user";
+export { createUserSchema, updateUserSchema, userIdParamSchema } from "./schemas/user";
+export type { CreateUserInput, UpdateUserInput, UserIdParam } from "./schemas/user";
 
 export {
   ticketQuerySchema,
@@ -11,6 +11,7 @@ export {
   ticketAssignSchema,
   ticketCategorySchema,
   ticketUpdateSchema,
+  ticketReplyCreateSchema,
   TICKET_PAGE_SIZE,
 } from "./schemas/ticket";
 export type {
@@ -22,4 +23,5 @@ export type {
   TicketAssignInput,
   TicketCategory,
   TicketUpdateInput,
+  TicketReplyCreateInput,
 } from "./schemas/ticket";

@@ -1,9 +1,10 @@
 import { updateUserSchema, type UpdateUserInput } from "@helpdesk/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
+import { withResetOnClose } from "@/lib/dialog";
 import type { UserRow } from "@/components/UsersTable";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,22 +47,15 @@ export function EditUserDialog({ user, onOpenChange }: EditUserDialogProps) {
     mutation.mutate(values);
   };
 
-  const serverError = mutation.error
-    ? isAxiosError(mutation.error)
-      ? mutation.error.response?.data?.error || mutation.error.message
-      : "Failed to update user"
-    : null;
+  const serverError = getErrorMessage(mutation.error, "Failed to update user");
 
   return (
     <Dialog
       open={!!user}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          reset();
-          mutation.reset();
-        }
-        onOpenChange(nextOpen);
-      }}
+      onOpenChange={withResetOnClose(onOpenChange, () => {
+        reset();
+        mutation.reset();
+      })}
     >
       <DialogContent>
         <DialogHeader>

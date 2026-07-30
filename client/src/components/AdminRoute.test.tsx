@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AdminRoute } from "./AdminRoute";
 import { authClient } from "@/lib/auth-client";
+import { mockSessionValue } from "@/test/mockSession";
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: { useSession: vi.fn() },
@@ -25,9 +26,7 @@ function renderAdminRoute() {
 
 describe("AdminRoute", () => {
   it("shows a loading state while the session is pending", () => {
-    mockedUseSession.mockReturnValue({ data: null, isPending: true } as ReturnType<
-      typeof authClient.useSession
-    >);
+    mockedUseSession.mockReturnValue(mockSessionValue(null, true));
 
     renderAdminRoute();
 
@@ -36,10 +35,7 @@ describe("AdminRoute", () => {
   });
 
   it("redirects to / when the user is not an admin", () => {
-    mockedUseSession.mockReturnValue({
-      data: { user: { role: "AGENT" } },
-      isPending: false,
-    } as unknown as ReturnType<typeof authClient.useSession>);
+    mockedUseSession.mockReturnValue(mockSessionValue({ role: "AGENT" }));
 
     renderAdminRoute();
 
@@ -48,9 +44,7 @@ describe("AdminRoute", () => {
   });
 
   it("redirects to / when there is no session at all", () => {
-    mockedUseSession.mockReturnValue({ data: null, isPending: false } as ReturnType<
-      typeof authClient.useSession
-    >);
+    mockedUseSession.mockReturnValue(mockSessionValue(null));
 
     renderAdminRoute();
 
@@ -58,10 +52,7 @@ describe("AdminRoute", () => {
   });
 
   it("renders the outlet when the user is an admin", () => {
-    mockedUseSession.mockReturnValue({
-      data: { user: { role: "ADMIN" } },
-      isPending: false,
-    } as unknown as ReturnType<typeof authClient.useSession>);
+    mockedUseSession.mockReturnValue(mockSessionValue({ role: "ADMIN" }));
 
     renderAdminRoute();
 

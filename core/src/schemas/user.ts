@@ -29,3 +29,9 @@ export const updateUserSchema = createUserSchema.omit({ password: true }).extend
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+export const userIdParamSchema = z.object({
+  id: z.uuid("Invalid user id"),
+});
+
+export type UserIdParam = z.infer<typeof userIdParamSchema>;

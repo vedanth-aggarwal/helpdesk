@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import type { SortingState } from "@tanstack/react-table";
 import { TICKET_PAGE_SIZE, type TicketCategoryFilter, type TicketStatusFilter } from "@helpdesk/core";
 import { api } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
 import { TicketsTable, type TicketRow } from "@/components/TicketsTable";
 import { Input } from "@/components/ui/input";
@@ -83,11 +83,7 @@ export function Tickets() {
   const tickets = data?.tickets;
   const totalPages = data ? Math.max(1, Math.ceil(data.total / TICKET_PAGE_SIZE)) : 1;
 
-  const errorMessage = error
-    ? isAxiosError(error)
-      ? error.response?.data?.error || error.message
-      : "Failed to load tickets"
-    : null;
+  const errorMessage = getErrorMessage(error, "Failed to load tickets");
 
   return (
     <div className="p-6">

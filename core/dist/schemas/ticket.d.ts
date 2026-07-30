@@ -68,6 +68,9 @@ export declare const ticketUpdateSchema: z.ZodObject<{
         REFUND_REQUEST: "REFUND_REQUEST";
     }>>>;
 }, z.core.$strip>;
+export declare const ticketReplyCreateSchema: z.ZodObject<{
+    body: z.ZodString;
+}, z.core.$strip>;
 export type TicketSortField = z.infer<typeof ticketSortFieldSchema>;
 export type TicketStatusFilter = z.infer<typeof ticketStatusFilterSchema>;
 export type TicketCategoryFilter = z.infer<typeof ticketCategoryFilterSchema>;
@@ -76,4 +79,5 @@ export type TicketIdParam = z.infer<typeof ticketIdParamSchema>;
 export type TicketAssignInput = z.infer<typeof ticketAssignSchema>;
 export type TicketCategory = z.infer<typeof ticketCategorySchema>;
 export type TicketUpdateInput = z.infer<typeof ticketUpdateSchema>;
+export type TicketReplyCreateInput = z.infer<typeof ticketReplyCreateSchema>;
 //# sourceMappingURL=ticket.d.ts.map
