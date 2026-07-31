@@ -4,7 +4,7 @@ import { authClient } from "../lib/auth-client";
 export function AdminRoute() {
   const { data, isPending } = authClient.useSession();
 
-  if (isPending) return <div className="p-6 text-gray-500">Loading…</div>;
+  if (isPending) return <div className="p-6 text-muted-foreground">Loading…</div>;
   if (data?.user.role !== "ADMIN") return <Navigate to="/" replace />;
 
   return <Outlet />;

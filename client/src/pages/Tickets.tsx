@@ -87,7 +87,7 @@ export function Tickets() {
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-semibold text-gray-900">Tickets</h1>
+      <h1 className="text-xl font-semibold text-foreground">Tickets</h1>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Input
@@ -125,7 +125,7 @@ export function Tickets() {
         </Select>
       </div>
 
-      {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
+      {errorMessage && <p className="mt-4 text-sm text-destructive">{errorMessage}</p>}
 
       {!errorMessage && (
         <>

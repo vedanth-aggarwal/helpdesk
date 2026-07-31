@@ -1,11 +1,13 @@
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TicketCategory, TicketStatusFilter } from "@helpdesk/core";
+import { Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { authClient } from "@/lib/auth-client";
-import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS, SENDER_TYPE_LABELS } from "@/lib/ticketLabels";
+import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -14,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReplyForm } from "@/components/ReplyForm";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SenderBadge } from "@/components/SenderBadge";
 
 interface Agent {
   id: string;
@@ -21,13 +25,15 @@ interface Agent {
   email: string;
 }
 
+type TicketStatusDisplay = TicketStatusFilter | "NEW" | "PROCESSING";
+
 interface TicketDetailResponse {
   id: number;
   subject: string;
   body: string;
   requesterEmail: string;
   requesterName: string;
-  status: TicketStatusFilter;
+  status: TicketStatusDisplay;
   category: TicketCategory | null;
   assignee: Agent | null;
   messageId: string | null;
@@ -35,14 +41,14 @@ interface TicketDetailResponse {
   updatedAt: string;
 }
 
-type SenderType = "AGENT" | "CUSTOMER";
+type SenderType = "AGENT" | "CUSTOMER" | "AI";
 
 interface Reply {
   id: number;
   body: string;
   senderType: SenderType;
   createdAt: string;
-  author: { id: string; name: string };
+  author: { id: string; name: string } | null;
 }
 
 const UNASSIGNED = "UNASSIGNED" as const;
@@ -109,13 +115,21 @@ export function TicketDetail() {
     },
   });
 
+  const summarizeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post<{ summary: string }>(`/api/tickets/${id}/summarize`);
+      return res.data;
+    },
+  });
+
   const errorMessage = getErrorMessage(error, "Failed to load ticket");
   const assignErrorMessage = getErrorMessage(assignMutation.error, "Failed to update assignment");
   const updateErrorMessage = getErrorMessage(updateMutation.error, "Failed to update ticket");
+  const summarizeErrorMessage = getErrorMessage(summarizeMutation.error, "Failed to summarize ticket");
 
   return (
     <div className="p-6">
-      <Link to="/tickets" className="text-sm text-gray-600 hover:text-gray-900">
+      <Link to="/tickets" className="text-sm text-muted-foreground hover:text-foreground">
         &larr; Back to tickets
       </Link>
 
@@ -127,11 +141,17 @@ export function TicketDetail() {
         </div>
       )}
 
-      {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
+      {errorMessage && <p className="mt-4 text-sm text-destructive">{errorMessage}</p>}
 
       {ticket && (
         <>
-          <h1 className="mt-2 text-xl font-semibold text-gray-900">{ticket.subject}</h1>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="font-mono text-xs text-muted-foreground">
+              #{ticket.id.toString().padStart(4, "0")}
+            </span>
+            <StatusBadge status={ticket.status} />
+          </div>
+          <h1 className="mt-1 text-xl font-semibold text-foreground">{ticket.subject}</h1>
           <div className="mt-2 text-sm text-muted-foreground">
             {ticket.requesterName} &lt;{ticket.requesterEmail}&gt;
           </div>
@@ -220,31 +240,52 @@ export function TicketDetail() {
           </div>
 
           {assignErrorMessage && (
-            <p className="mt-2 text-sm text-red-600">{assignErrorMessage}</p>
+            <p className="mt-2 text-sm text-destructive">{assignErrorMessage}</p>
           )}
           {updateErrorMessage && (
-            <p className="mt-2 text-sm text-red-600">{updateErrorMessage}</p>
+            <p className="mt-2 text-sm text-destructive">{updateErrorMessage}</p>
           )}
 
-          <div className="mt-6 whitespace-pre-wrap rounded-md border border-gray-200 bg-white p-4 text-sm">
+          <div className="mt-6 whitespace-pre-wrap rounded-md border border-border bg-card p-4 text-sm">
             {ticket.body}
           </div>
 
+          <div className="mt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={summarizeMutation.isPending}
+              onClick={() => summarizeMutation.mutate()}
+            >
+              <Sparkles />
+              {summarizeMutation.isPending ? "Summarizing…" : "Summarize"}
+            </Button>
+            {summarizeErrorMessage && (
+              <p className="mt-2 text-sm text-destructive">{summarizeErrorMessage}</p>
+            )}
+            {summarizeMutation.data && (
+              <div className="mt-2 rounded-md border border-border bg-muted p-4 text-sm">
+                {summarizeMutation.data.summary}
+              </div>
+            )}
+          </div>
+
           <div className="mt-6 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-900">Replies</h2>
+            <h2 className="text-sm font-semibold text-foreground">Replies</h2>
             {replies?.length === 0 && (
               <p className="text-sm text-muted-foreground">No replies yet.</p>
             )}
             {replies?.map((reply) => (
               <div
                 key={reply.id}
-                className="whitespace-pre-wrap rounded-md border border-gray-200 bg-white p-4 text-sm"
+                className="whitespace-pre-wrap rounded-md border border-border bg-card p-4 text-sm"
               >
                 <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-gray-900">{reply.author.name}</span>
-                  <span className="rounded-full border border-gray-200 px-2 py-0.5">
-                    {SENDER_TYPE_LABELS[reply.senderType]}
+                  <span className="font-medium text-foreground">
+                    {reply.author?.name ?? "AI Assistant"}
                   </span>
+                  <SenderBadge senderType={reply.senderType} />
                   <span>{new Date(reply.createdAt).toLocaleString()}</span>
                 </div>
                 <div>{reply.body}</div>

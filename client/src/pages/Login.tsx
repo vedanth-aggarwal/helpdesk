@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { authClient } from "../lib/auth-client";
+import { BrandMark } from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -51,8 +52,9 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4">
+      <BrandMark />
+      <Card className="w-full max-w-sm border-border bg-card">
         <CardHeader>
           <CardTitle className="text-xl">Sign in</CardTitle>
           <CardDescription>

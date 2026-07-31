@@ -25,7 +25,7 @@ export function Users() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Users</h1>
+        <h1 className="text-xl font-semibold text-foreground">Users</h1>
         <Button onClick={() => setIsCreateOpen(true)}>Add user</Button>
       </div>
 
@@ -39,7 +39,7 @@ export function Users() {
         onOpenChange={(open) => !open && setDeletingUser(null)}
       />
 
-      {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
+      {errorMessage && <p className="mt-4 text-sm text-destructive">{errorMessage}</p>}
 
       {!errorMessage && (
         <UsersTable users={users} onEdit={setEditingUser} onDelete={setDeletingUser} />

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "../db";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 import { sendValidationError } from "../lib/validation";
+import { classifyTicket } from "../lib/classifyTicket";
+import { autoResolveTicket } from "../lib/autoResolveTicket";
 
 export const inboundEmailRouter = Router();
 
@@ -44,6 +46,18 @@ inboundEmailRouter.post("/", requireWebhookSecret, async (req, res) => {
       messageId,
     },
   });
+
+  try {
+    await classifyTicket(ticket.id, subject, body);
+  } catch (error) {
+    console.error(`Failed to enqueue classification for ticket ${ticket.id}:`, error);
+  }
+
+  try {
+    await autoResolveTicket(ticket.id, subject, body);
+  } catch (error) {
+    console.error(`Failed to enqueue auto-resolution for ticket ${ticket.id}:`, error);
+  }
 
   res.status(201).json({ id: ticket.id, status: "created" });
 });

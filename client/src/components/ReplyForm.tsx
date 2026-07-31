@@ -18,6 +18,9 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
     register,
     handleSubmit,
     reset,
+    setValue,
+    getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<TicketReplyCreateInput>({
     resolver: zodResolver(ticketReplyCreateSchema),
@@ -32,11 +35,21 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
     },
   });
 
+  const polishMutation = useMutation({
+    mutationFn: (body: string) =>
+      api.post<{ body: string }>(`/api/tickets/${ticketId}/polish-reply`, { body }),
+    onSuccess: ({ data }) => {
+      setValue("body", data.body);
+    },
+  });
+
   const onSubmit = (values: TicketReplyCreateInput) => {
     mutation.mutate(values);
   };
 
+  const draftBody = watch("body");
   const serverError = getErrorMessage(mutation.error, "Failed to post reply");
+  const polishError = getErrorMessage(polishMutation.error, "Failed to polish reply");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4">
@@ -52,10 +65,21 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
           <FieldError errors={[errors.body]} />
         </Field>
         {serverError && <FieldError>{serverError}</FieldError>}
+        {polishError && <FieldError>{polishError}</FieldError>}
       </FieldGroup>
-      <Button type="submit" className="mt-3" disabled={isSubmitting || mutation.isPending}>
-        {isSubmitting || mutation.isPending ? "Posting…" : "Post reply"}
-      </Button>
+      <div className="mt-3 flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={polishMutation.isPending || !draftBody?.trim()}
+          onClick={() => polishMutation.mutate(getValues("body"))}
+        >
+          {polishMutation.isPending ? "Polishing…" : "Polish"}
+        </Button>
+        <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+          {isSubmitting || mutation.isPending ? "Posting…" : "Post reply"}
+        </Button>
+      </div>
     </form>
   );
 }

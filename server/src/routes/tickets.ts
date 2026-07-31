@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { openai } from "@ai-sdk/openai";
+import { generateText } from "ai";
 import {
   ticketQuerySchema,
   ticketIdParamSchema,
@@ -32,7 +34,7 @@ ticketsRouter.get("/", requireAuth, async (req, res) => {
   const { sortBy, sortOrder, status, category, search, page } = parsed.data;
 
   const where: Prisma.TicketWhereInput = {
-    ...(status && { status }),
+    status: status ?? { notIn: ["NEW", "PROCESSING"] },
     ...(category && { category: category === "UNCATEGORIZED" ? null : category }),
     ...(search && {
       OR: [
@@ -64,6 +66,22 @@ ticketsRouter.get("/", requireAuth, async (req, res) => {
   ]);
 
   res.json({ tickets, total });
+});
+
+interface TicketStats {
+  total: number;
+  open: number;
+  resolvedByAi: number;
+  avgResolutionSeconds: number | null;
+  ticketsPerDay: { date: string; count: number }[];
+}
+
+ticketsRouter.get("/stats", requireAuth, async (_req, res) => {
+  const rows = await prisma.$queryRaw<{ get_ticket_stats: TicketStats }[]>`
+    SELECT get_ticket_stats()
+  `;
+
+  res.json(rows[0].get_ticket_stats);
 });
 
 ticketsRouter.get("/:id", requireAuth, async (req, res) => {
@@ -120,7 +138,10 @@ ticketsRouter.patch("/:id", requireAuth, async (req, res) => {
   const updated = await prisma.ticket.update({
     where: { id },
     data: {
-      ...(status !== undefined && { status }),
+      ...(status !== undefined && {
+        status,
+        resolvedAt: status === "RESOLVED" ? new Date() : null,
+      }),
       ...(category !== undefined && { category }),
     },
     select: {
@@ -237,4 +258,89 @@ ticketsRouter.post("/:id/replies", requireAuth, async (req, res) => {
   });
 
   res.status(201).json(reply);
+});
+
+ticketsRouter.post("/:id/summarize", requireAuth, async (req, res) => {
+  const parsedParams = ticketIdParamSchema.safeParse(req.params);
+
+  if (!parsedParams.success) {
+    return sendValidationError(res, parsedParams.error, "Invalid ticket id");
+  }
+
+  const { id } = parsedParams.data;
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: {
+      subject: true,
+      body: true,
+      requesterName: true,
+      replies: {
+        orderBy: { createdAt: "asc" },
+        select: { body: true, senderType: true, author: { select: authorSelect } },
+      },
+    },
+  });
+
+  if (!ticket) {
+    return res.status(404).json({ error: "Ticket not found" });
+  }
+
+  const conversation = [
+    `${ticket.requesterName} (customer): ${ticket.body}`,
+    ...ticket.replies.map(
+      (reply) =>
+        `${reply.author?.name ?? "AI"} (${reply.senderType === "AGENT" ? "agent" : reply.senderType === "AI" ? "AI" : "customer"}): ${reply.body}`,
+    ),
+  ].join("\n\n");
+
+  try {
+    const { text } = await generateText({
+      model: openai("gpt-5-nano"),
+      prompt: `Summarize this support ticket and its conversation history for an agent. Be concise (2-4 sentences), focus on what the customer needs and the current state of the resolution. Return only the summary text, with no preamble or explanation.\n\nSubject: ${ticket.subject}\n\n${conversation}`,
+    });
+
+    res.json({ summary: text });
+  } catch {
+    res.status(502).json({ error: "Failed to summarize ticket" });
+  }
+});
+
+ticketsRouter.post("/:id/polish-reply", requireAuth, async (req, res) => {
+  const parsedParams = ticketIdParamSchema.safeParse(req.params);
+
+  if (!parsedParams.success) {
+    return sendValidationError(res, parsedParams.error, "Invalid ticket id");
+  }
+
+  const parsedBody = ticketReplyCreateSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return sendValidationError(res, parsedBody.error, "Invalid request body");
+  }
+
+  const { id } = parsedParams.data;
+  const { body } = parsedBody.data;
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { requesterName: true },
+  });
+
+  if (!ticket) {
+    return res.status(404).json({ error: "Ticket not found" });
+  }
+
+  const agentName = req.session!.user.name;
+
+  try {
+    const { text } = await generateText({
+      model: openai("gpt-5-nano"),
+      prompt: `Improve the clarity, grammar, and tone of this customer support reply. Keep the meaning and any specific details intact. Address the customer by name (${ticket.requesterName}) at the start, and sign off at the end with "Regards,\n${agentName}". Return only the improved reply text, with no preamble or explanation:\n\n${body}`,
+    });
+
+    res.json({ body: text });
+  } catch {
+    res.status(502).json({ error: "Failed to polish reply" });
+  }
 });

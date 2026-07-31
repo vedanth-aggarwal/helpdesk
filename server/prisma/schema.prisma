@@ -18,6 +18,8 @@ enum Role {
 }
 
 enum TicketStatus {
+  NEW
+  PROCESSING
   OPEN
   RESOLVED
   CLOSED
@@ -32,6 +34,7 @@ enum TicketCategory {
 enum SenderType {
   AGENT
   CUSTOMER
+  AI
 }
 
 model User {
@@ -94,11 +97,12 @@ model Ticket {
   body           String
   requesterEmail String
   requesterName  String
-  status         TicketStatus    @default(OPEN)
+  status         TicketStatus    @default(NEW)
   category       TicketCategory?
   assigneeId     String?
   assignee       User?           @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   messageId      String?         @unique
+  resolvedAt     DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   replies        TicketReply[]
@@ -111,8 +115,8 @@ model TicketReply {
   body       String
   ticketId   Int
   ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId   String
-  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   senderType SenderType @default(AGENT)
   createdAt  DateTime   @default(now())
 

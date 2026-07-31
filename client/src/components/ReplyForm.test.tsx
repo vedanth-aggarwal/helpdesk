@@ -106,4 +106,95 @@ describe("ReplyForm", () => {
       },
     });
   });
+
+  it("disables the Polish button when the draft is empty", () => {
+    renderWithQuery(<ReplyForm ticketId="1" />);
+
+    expect(screen.getByRole("button", { name: "Polish" })).toBeDisabled();
+  });
+
+  it("enables the Polish button once a draft is entered", async () => {
+    const user = userEvent.setup();
+    renderWithQuery(<ReplyForm ticketId="1" />);
+
+    await user.type(screen.getByLabelText("Reply"), "hey u just click the link lol");
+
+    expect(screen.getByRole("button", { name: "Polish" })).toBeEnabled();
+  });
+
+  it("replaces the draft with the polished text on success", async () => {
+    const user = userEvent.setup();
+    mockedPost.mockResolvedValue({
+      data: { body: "Hello Alex, please click the link. Regards,\nAdmin" },
+    });
+    renderWithQuery(<ReplyForm ticketId="1" />);
+
+    const textarea = screen.getByLabelText("Reply");
+    await user.type(textarea, "hey u just click the link lol");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith("/api/tickets/1/polish-reply", {
+        body: "hey u just click the link lol",
+      });
+    });
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue("Hello Alex, please click the link. Regards,\nAdmin");
+    });
+  });
+
+  it("disables the Polish button and shows a pending label while polishing", async () => {
+    const user = userEvent.setup();
+    let resolvePolish: (value: unknown) => void = () => {};
+    mockedPost.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePolish = resolve;
+      }),
+    );
+    renderWithQuery(<ReplyForm ticketId="1" />);
+
+    await user.type(screen.getByLabelText("Reply"), "hey u just click the link lol");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    expect(await screen.findByRole("button", { name: "Polishing…" })).toBeDisabled();
+
+    resolvePolish({ data: { body: "Polished text" } });
+  });
+
+  it("shows a server error inline when polishing fails", async () => {
+    const user = userEvent.setup();
+    mockedPost.mockRejectedValue(
+      new AxiosError("Request failed", "502", undefined, undefined, {
+        status: 502,
+        statusText: "Bad Gateway",
+        headers: new AxiosHeaders(),
+        config: { headers: new AxiosHeaders() },
+        data: { error: "Failed to polish reply" },
+      }),
+    );
+    renderWithQuery(<ReplyForm ticketId="1" />);
+
+    await user.type(screen.getByLabelText("Reply"), "hey u just click the link lol");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    expect(await screen.findByText("Failed to polish reply")).toBeInTheDocument();
+  });
+
+  it("does not submit the form when the Polish button is clicked", async () => {
+    const user = userEvent.setup();
+    mockedPost.mockResolvedValue({ data: { body: "Polished text" } });
+    renderWithQuery(<ReplyForm ticketId="1" />);
+
+    await user.type(screen.getByLabelText("Reply"), "hey u just click the link lol");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith("/api/tickets/1/polish-reply", {
+        body: "hey u just click the link lol",
+      });
+    });
+
+    expect(mockedPost).not.toHaveBeenCalledWith("/api/tickets/1/replies", expect.anything());
+  });
 });

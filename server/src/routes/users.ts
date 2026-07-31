@@ -127,10 +127,16 @@ usersRouter.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
     return res.status(403).json({ error: "Admin users cannot be deleted" });
   }
 
-  await prisma.user.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    }),
+    prisma.ticket.updateMany({
+      where: { assigneeId: id },
+      data: { assigneeId: null },
+    }),
+  ]);
 
   res.status(204).send();
 });

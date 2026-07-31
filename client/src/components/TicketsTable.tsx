@@ -18,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TICKET_STATUS_LABELS, TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
+import { StatusBadge } from "@/components/StatusBadge";
+import { TICKET_CATEGORY_LABELS } from "@/lib/ticketLabels";
 
 export interface TicketRow {
   id: number;
@@ -40,12 +41,20 @@ interface TicketsTableProps {
 const columnHelper = createColumnHelper<TicketRow>();
 
 const columns = [
+  columnHelper.accessor("id", {
+    header: "ID",
+    cell: (info) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        #{info.getValue().toString().padStart(4, "0")}
+      </span>
+    ),
+  }),
   columnHelper.accessor("subject", {
     header: "Subject",
     cell: (info) => (
       <Link
         to={`/tickets/${info.row.original.id}`}
-        className="font-medium text-gray-900 hover:underline"
+        className="font-medium text-foreground hover:underline"
       >
         {info.getValue()}
       </Link>
@@ -63,7 +72,7 @@ const columns = [
   }),
   columnHelper.accessor("status", {
     header: "Status",
-    cell: (info) => TICKET_STATUS_LABELS[info.getValue()],
+    cell: (info) => <StatusBadge status={info.getValue()} />,
   }),
   columnHelper.accessor("category", {
     header: "Category",
@@ -98,6 +107,7 @@ export function TicketsTable({ tickets, sorting, onSortingChange }: TicketsTable
       <Table className="mt-4">
         <TableHeader>
           <TableRow>
+            <TableHead>ID</TableHead>
             <TableHead>Subject</TableHead>
             <TableHead>Requester</TableHead>
             <TableHead>Status</TableHead>
@@ -109,6 +119,9 @@ export function TicketsTable({ tickets, sorting, onSortingChange }: TicketsTable
         <TableBody>
           {Array.from({ length: 5 }).map((_, i) => (
             <TableRow key={i}>
+              <TableCell>
+                <Skeleton className="h-4 w-12" />
+              </TableCell>
               <TableCell>
                 <Skeleton className="h-4 w-48" />
               </TableCell>
